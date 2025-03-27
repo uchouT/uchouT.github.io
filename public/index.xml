@@ -2,24 +2,24 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>uchouT&#39;s Blog</title>
-    <link>https://uchout.moe/</link>
+    <link>http://localhost:1313/</link>
     <description>Recent content on uchouT&#39;s Blog</description>
     <image>
       <title>uchouT&#39;s Blog</title>
-      <url>https://uchout.moe/img/self.jpg</url>
-      <link>https://uchout.moe/img/self.jpg</link>
+      <url>http://localhost:1313/img/self.jpg</url>
+      <link>http://localhost:1313/img/self.jpg</link>
     </image>
     <generator>Hugo -- 0.145.0</generator>
     <language>en</language>
     <lastBuildDate>Thu, 27 Mar 2025 23:44:45 +0800</lastBuildDate>
-    <atom:link href="https://uchout.moe/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>About</title>
-      <link>https://uchout.moe/about/</link>
+      <link>http://localhost:1313/about/</link>
       <pubDate>Thu, 27 Mar 2025 23:44:45 +0800</pubDate>
-      <guid>https://uchout.moe/about/</guid>
+      <guid>http://localhost:1313/about/</guid>
       <description>&lt;figure&gt;
-    &lt;img loading=&#34;lazy&#34; src=&#34;https://uchout.moe/img/self.jpg&#34;
+    &lt;img loading=&#34;lazy&#34; src=&#34;http://localhost:1313/img/self.jpg&#34;
          alt=&#34;uchouT&#34; width=&#34;300px&#34;/&gt; 
 &lt;/figure&gt;
 
@@ -32,9 +32,9 @@
     </item>
     <item>
       <title>KDE 笔记本触控板手势优化 libinput-gestures &#43; ydotool</title>
-      <link>https://uchout.moe/posts/kde-touchpad-gesture/</link>
+      <link>http://localhost:1313/posts/kde-touchpad-gesture/</link>
       <pubDate>Mon, 24 Feb 2025 13:47:09 +0000</pubDate>
-      <guid>https://uchout.moe/posts/kde-touchpad-gesture/</guid>
+      <guid>http://localhost:1313/posts/kde-touchpad-gesture/</guid>
       <description>&lt;p&gt;目前(6.3.1) KDE Plasma 桌面自带的触控板手势只有 4 指上滑下滑，这肯定是不够用的。可以通过 &lt;a href=&#34;https://github.com/bulletmark/libinput-gestures&#34;&gt;libinput-gestures&lt;/a&gt; 来实现自定义笔记本触控板手势。&lt;/p&gt;
 &lt;h2 id=&#34;libinput-gestures&#34;&gt;libinput-gestures&lt;/h2&gt;
 &lt;h3 id=&#34;安装&#34;&gt;安装&lt;/h3&gt;
@@ -42,16 +42,16 @@
     </item>
     <item>
       <title>Arch Linux &#43; KDE 日常使用的记录</title>
-      <link>https://uchout.moe/posts/archlinux-daily-tips/</link>
+      <link>http://localhost:1313/posts/archlinux-daily-tips/</link>
       <pubDate>Tue, 11 Feb 2025 23:57:49 +0800</pubDate>
-      <guid>https://uchout.moe/posts/archlinux-daily-tips/</guid>
+      <guid>http://localhost:1313/posts/archlinux-daily-tips/</guid>
       <description>本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。</description>
     </item>
     <item>
       <title>Ani-rss &#43; qb &#43; alist &#43; symlink &#43; emby 实现的新番媒体库</title>
-      <link>https://uchout.moe/posts/bangumi-auto/</link>
+      <link>http://localhost:1313/posts/bangumi-auto/</link>
       <pubDate>Sat, 11 Jan 2025 23:25:26 +0800</pubDate>
-      <guid>https://uchout.moe/posts/bangumi-auto/</guid>
+      <guid>http://localhost:1313/posts/bangumi-auto/</guid>
       <description>&lt;p&gt;2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 &lt;a href=&#34;https://github.com/wushuo894/ani-rss&#34;&gt;Ani-rss&lt;/a&gt;，本文也作了相应修改。&lt;/p&gt;
 &lt;p&gt;前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：&lt;/p&gt;</description>
     </item>

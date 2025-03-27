@@ -2,57 +2,57 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Tags on uchouT&#39;s Blog</title>
-    <link>https://uchout.moe/tags/</link>
+    <link>http://localhost:1313/tags/</link>
     <description>Recent content in Tags on uchouT&#39;s Blog</description>
     <image>
       <title>uchouT&#39;s Blog</title>
-      <url>https://uchout.moe/img/self.jpg</url>
-      <link>https://uchout.moe/img/self.jpg</link>
+      <url>http://localhost:1313/img/self.jpg</url>
+      <link>http://localhost:1313/img/self.jpg</link>
     </image>
     <generator>Hugo -- 0.145.0</generator>
     <language>en</language>
     <lastBuildDate>Mon, 24 Feb 2025 13:47:09 +0000</lastBuildDate>
-    <atom:link href="https://uchout.moe/tags/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Arch</title>
-      <link>https://uchout.moe/tags/arch/</link>
+      <link>http://localhost:1313/tags/arch/</link>
       <pubDate>Mon, 24 Feb 2025 13:47:09 +0000</pubDate>
-      <guid>https://uchout.moe/tags/arch/</guid>
+      <guid>http://localhost:1313/tags/arch/</guid>
       <description></description>
     </item>
     <item>
       <title>KDE</title>
-      <link>https://uchout.moe/tags/kde/</link>
+      <link>http://localhost:1313/tags/kde/</link>
       <pubDate>Mon, 24 Feb 2025 13:47:09 +0000</pubDate>
-      <guid>https://uchout.moe/tags/kde/</guid>
+      <guid>http://localhost:1313/tags/kde/</guid>
       <description></description>
     </item>
     <item>
       <title>Linux</title>
-      <link>https://uchout.moe/tags/linux/</link>
+      <link>http://localhost:1313/tags/linux/</link>
       <pubDate>Mon, 24 Feb 2025 13:47:09 +0000</pubDate>
-      <guid>https://uchout.moe/tags/linux/</guid>
+      <guid>http://localhost:1313/tags/linux/</guid>
       <description></description>
     </item>
     <item>
       <title>ACG</title>
-      <link>https://uchout.moe/tags/acg/</link>
+      <link>http://localhost:1313/tags/acg/</link>
       <pubDate>Sat, 11 Jan 2025 23:25:26 +0800</pubDate>
-      <guid>https://uchout.moe/tags/acg/</guid>
+      <guid>http://localhost:1313/tags/acg/</guid>
       <description></description>
     </item>
     <item>
       <title>Emby</title>
-      <link>https://uchout.moe/tags/emby/</link>
+      <link>http://localhost:1313/tags/emby/</link>
       <pubDate>Sat, 11 Jan 2025 23:25:26 +0800</pubDate>
-      <guid>https://uchout.moe/tags/emby/</guid>
+      <guid>http://localhost:1313/tags/emby/</guid>
       <description></description>
     </item>
     <item>
       <title>Torrent</title>
-      <link>https://uchout.moe/tags/torrent/</link>
+      <link>http://localhost:1313/tags/torrent/</link>
       <pubDate>Sat, 11 Jan 2025 23:25:26 +0800</pubDate>
-      <guid>https://uchout.moe/tags/torrent/</guid>
+      <guid>http://localhost:1313/tags/torrent/</guid>
       <description></description>
     </item>
   </channel>
