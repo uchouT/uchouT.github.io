@@ -2,56 +2,56 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>http://localhost:1313/about/</loc>
+    <loc>https://uchout.moe/about/</loc>
     <lastmod>2025-03-27T23:44:45+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/</loc>
+    <loc>https://uchout.moe/</loc>
     <lastmod>2025-03-27T23:44:45+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/arch/</loc>
+    <loc>https://uchout.moe/tags/arch/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/categories/</loc>
+    <loc>https://uchout.moe/categories/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/kde/</loc>
+    <loc>https://uchout.moe/tags/kde/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/posts/kde-touchpad-gesture/</loc>
+    <loc>https://uchout.moe/posts/kde-touchpad-gesture/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/linux/</loc>
+    <loc>https://uchout.moe/tags/linux/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/categories/linux-%E6%97%A5%E5%B8%B8/</loc>
+    <loc>https://uchout.moe/categories/linux-%E6%97%A5%E5%B8%B8/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/posts/</loc>
+    <loc>https://uchout.moe/posts/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/</loc>
+    <loc>https://uchout.moe/tags/</loc>
     <lastmod>2025-02-24T13:47:09+00:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/posts/archlinux-daily-tips/</loc>
+    <loc>https://uchout.moe/posts/archlinux-daily-tips/</loc>
     <lastmod>2025-02-11T23:57:49+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/acg/</loc>
+    <loc>https://uchout.moe/tags/acg/</loc>
     <lastmod>2025-01-11T23:25:26+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/posts/bangumi-auto/</loc>
+    <loc>https://uchout.moe/posts/bangumi-auto/</loc>
     <lastmod>2025-01-11T23:25:26+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/emby/</loc>
+    <loc>https://uchout.moe/tags/emby/</loc>
     <lastmod>2025-01-11T23:25:26+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/torrent/</loc>
+    <loc>https://uchout.moe/tags/torrent/</loc>
     <lastmod>2025-01-11T23:25:26+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/categories/%E6%8A%98%E8%85%BE%E6%97%A5%E8%AE%B0/</loc>
+    <loc>https://uchout.moe/categories/%E6%8A%98%E8%85%BE%E6%97%A5%E8%AE%B0/</loc>
     <lastmod>2025-01-11T23:25:26+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/archives/</loc>
+    <loc>https://uchout.moe/archives/</loc>
   </url><url>
-    <loc>http://localhost:1313/search/</loc>
+    <loc>https://uchout.moe/search/</loc>
   </url>
 </urlset>

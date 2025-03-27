@@ -2,22 +2,22 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Linux 日常 on uchouT&#39;s Blog</title>
-    <link>http://localhost:1313/categories/linux-%E6%97%A5%E5%B8%B8/</link>
+    <link>https://uchout.moe/categories/linux-%E6%97%A5%E5%B8%B8/</link>
     <description>Recent content in Linux 日常 on uchouT&#39;s Blog</description>
     <image>
       <title>uchouT&#39;s Blog</title>
-      <url>http://localhost:1313/img/self.jpg</url>
-      <link>http://localhost:1313/img/self.jpg</link>
+      <url>https://uchout.moe/img/self.jpg</url>
+      <link>https://uchout.moe/img/self.jpg</link>
     </image>
     <generator>Hugo -- 0.145.0</generator>
     <language>en</language>
     <lastBuildDate>Mon, 24 Feb 2025 13:47:09 +0000</lastBuildDate>
-    <atom:link href="http://localhost:1313/categories/linux-%E6%97%A5%E5%B8%B8/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://uchout.moe/categories/linux-%E6%97%A5%E5%B8%B8/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>KDE 笔记本触控板手势优化 libinput-gestures &#43; ydotool</title>
-      <link>http://localhost:1313/posts/kde-touchpad-gesture/</link>
+      <link>https://uchout.moe/posts/kde-touchpad-gesture/</link>
       <pubDate>Mon, 24 Feb 2025 13:47:09 +0000</pubDate>
-      <guid>http://localhost:1313/posts/kde-touchpad-gesture/</guid>
+      <guid>https://uchout.moe/posts/kde-touchpad-gesture/</guid>
       <description>&lt;p&gt;目前(6.3.1) KDE Plasma 桌面自带的触控板手势只有 4 指上滑下滑，这肯定是不够用的。可以通过 &lt;a href=&#34;https://github.com/bulletmark/libinput-gestures&#34;&gt;libinput-gestures&lt;/a&gt; 来实现自定义笔记本触控板手势。&lt;/p&gt;
 &lt;h2 id=&#34;libinput-gestures&#34;&gt;libinput-gestures&lt;/h2&gt;
 &lt;h3 id=&#34;安装&#34;&gt;安装&lt;/h3&gt;
@@ -25,9 +25,9 @@
     </item>
     <item>
       <title>Arch Linux &#43; KDE 日常使用的记录</title>
-      <link>http://localhost:1313/posts/archlinux-daily-tips/</link>
+      <link>https://uchout.moe/posts/archlinux-daily-tips/</link>
       <pubDate>Tue, 11 Feb 2025 23:57:49 +0800</pubDate>
-      <guid>http://localhost:1313/posts/archlinux-daily-tips/</guid>
+      <guid>https://uchout.moe/posts/archlinux-daily-tips/</guid>
       <description>本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。</description>
     </item>
   </channel>

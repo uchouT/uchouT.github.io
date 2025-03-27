@@ -23,8 +23,8 @@ params:
   author: ["uchouT"] # multiple authors
   images: ["img/self.jpg"]
   DateFormat: "January 2, 2006"
-  defaultTheme: auto # dark, light
-  disableThemeToggle: false
+  defaultTheme: dark # dark, light
+  disableThemeToggle: true
   utterances:
     enable: true
     repo: "uchouT/uchouT.github.io"  # 替换为你的 GitHub 用户名和仓库名
