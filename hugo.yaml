@@ -1,0 +1,150 @@
+baseURL: "https://uchout.moe/"
+title: uchouT's Blog
+pagination.pagerSize: 8
+theme: PaperMod
+
+enableRobotsTXT: true
+enableInlineShortcodes: true
+buildDrafts: false
+buildFuture: false
+buildExpired: false
+
+googleAnalytics: 
+
+minify:
+  disableXML: true
+  minifyOutput: true
+
+params:
+  env: production # to enable google analytics, opengraph, twitter-cards and schema.
+  title: uchouT's Blog
+  description: "uchouT 的角落，简单记录学习折腾心得。"
+  keywords: [Blog, 个人博客, PaperMod]
+  author: ["uchouT"] # multiple authors
+  images: ["img/self.jpg"]
+  DateFormat: "January 2, 2006"
+  defaultTheme: auto # dark, light
+  disableThemeToggle: false
+  utterances:
+    enable: true
+    repo: "uchouT/uchouT.github.io"  # 替换为你的 GitHub 用户名和仓库名
+    issueTerm: "pathname"          # 可以是 "pathname", "title" 或 "url"
+
+  ShowLastMod: true
+  ShowCopyRight: true
+  ShowReadingTime: false
+  ShowShareButtons: false
+  ShowPostNavLinks: false
+  ShowBreadCrumbs: true
+  ShowCodeCopyButtons: true
+  ShowWordCount: true
+  ShowRssButtonInSectionTermList: true
+  UseHugoToc: true
+  disableSpecial1stPost: false
+  disableScrollToTop: false
+  comments: true
+  math: true
+  hidemeta: false
+  hideSummary: false
+  showtoc: true
+  tocopen: true
+
+  assets:
+    disableFingerprinting: true
+    favicon: "img/self_small.jpg"
+    
+
+  label:
+    text: "Home"
+    # icon: /apple-touch-icon.png
+    iconHeight: 35
+
+  # home-info mode
+  homeInfoParams:
+    Title: "Hi there \U0001F44B"
+    Content: >
+      Hi, 这里是 uchouT 的博客.
+
+  socialIcons:
+    - name: RSS
+      url: /index.xml
+    - name: github
+      url: "https://github.com/uchouT"
+    - name: email
+      url: "mailto:i@uchout.moe"
+    - name: telegram
+      url: "https://t.me/uchouT"
+    - name: bilibili
+      url: "https://space.bilibili.com/414940876"
+
+  analytics:
+    google:
+      SiteVerificationTag: 
+
+  # editPost:
+  #   URL:
+  #   Text: "Suggest Changes" # edit text
+  #   appendFilePath: true # to append file path to Edit link
+
+  # for search
+  # https://fusejs.io/api/options.html
+  fuseOpts:
+    isCaseSensitive: false
+    shouldSort: true
+    location: 0
+    distance: 1000
+    threshold: 0.4
+    minMatchCharLength: 0
+    keys: ["title", "permalink", "summary", "content"]
+
+
+menu:
+  main:
+    - identifier: categories
+      name: Categories
+      url: /categories
+      weight: 4
+    - identifier: archive
+      name: Archive
+      url: /archives/
+      weight: 5
+    - identifier: search
+      name: Search
+      url: /search/
+      weight: 6
+    - identifier: tags
+      name: Tags
+      url: /tags/
+      weight: 20
+    # - identifier: friends
+    #   name: 友人
+    #   url: /friends/
+    #   weight: 22
+    - identifier: about
+      name: About
+      url: /about/
+      weight: 30
+
+# Read: https://github.com/adityatelange/hugo-PaperMod/wiki/FAQs#using-hugos-syntax-highlighter-chroma
+markup:
+  goldmark:
+    renderer:
+      unsafe: true # HUGO 默认转义 Markdown 文件中的 HTML 代码，如需开启的话
+  highlight:
+    disableHLJS: true # to disable highlight.js
+    # anchorLineNos: true
+    codeFences: true
+    guessSyntax: true
+    noClasses: false
+    pygmentsUseClasses: true
+
+outputs:
+    home:
+        - HTML
+        - RSS
+        - JSON # is necessary
+
+hasCJKLanguage: true
+caches:
+  images:
+    dir: :cacheDir/images

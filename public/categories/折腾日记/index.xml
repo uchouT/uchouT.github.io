@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>折腾日记 on uchouT&#39;s Blog</title>
+    <link>https://uchout.moe/categories/%E6%8A%98%E8%85%BE%E6%97%A5%E8%AE%B0/</link>
+    <description>Recent content in 折腾日记 on uchouT&#39;s Blog</description>
+    <image>
+      <title>uchouT&#39;s Blog</title>
+      <url>https://uchout.moe/img/self.jpg</url>
+      <link>https://uchout.moe/img/self.jpg</link>
+    </image>
+    <generator>Hugo -- 0.145.0</generator>
+    <language>en</language>
+    <lastBuildDate>Sat, 11 Jan 2025 23:25:26 +0800</lastBuildDate>
+    <atom:link href="https://uchout.moe/categories/%E6%8A%98%E8%85%BE%E6%97%A5%E8%AE%B0/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Ani-rss &#43; qb &#43; alist &#43; symlink &#43; emby 实现的新番媒体库</title>
+      <link>https://uchout.moe/posts/bangumi-auto/</link>
+      <pubDate>Sat, 11 Jan 2025 23:25:26 +0800</pubDate>
+      <guid>https://uchout.moe/posts/bangumi-auto/</guid>
+      <description>&lt;p&gt;2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 &lt;a href=&#34;https://github.com/wushuo894/ani-rss&#34;&gt;Ani-rss&lt;/a&gt;，本文也作了相应修改。&lt;/p&gt;
+&lt;p&gt;前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>
