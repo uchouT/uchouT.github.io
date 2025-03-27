@@ -41,7 +41,7 @@ img.active {
 
 /* 第一个帖子距离 menu 的距离*/
 .first-entry {
-  min-height: 220px;
+  min-height: 300px;
   margin: 0;
 }
 
