@@ -202,7 +202,7 @@ nano qb_auto.sh
 
 粘贴以下内容：
 
-```shell
+```bash
 #!/bin/sh
 torrent_name=$1
 content_dir=$2

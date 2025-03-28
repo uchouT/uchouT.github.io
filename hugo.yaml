@@ -19,7 +19,7 @@ params:
   env: production # to enable google analytics, opengraph, twitter-cards and schema.
   title: uchouT's Blog
   description: "uchouT 的角落，简单记录学习折腾心得。"
-  keywords: [Blog, 个人博客, PaperMod]
+  keywords: [Blog, 个人博客, PaperMod, Linux, 计算机科学, 学习]
   author: ["uchouT"] # multiple authors
   images: ["img/self.jpg"]
   DateFormat: "January 2, 2006"
