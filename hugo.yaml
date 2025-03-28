@@ -3,7 +3,7 @@ title: uchouT's Blog
 pagination.pagerSize: 8
 theme: PaperMod
 
-enableRobotsTXT: true
+enableEmoji: true
 enableInlineShortcodes: true
 buildDrafts: false
 buildFuture: false

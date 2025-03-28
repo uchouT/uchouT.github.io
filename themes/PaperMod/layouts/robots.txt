@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /tags/
+Disallow: /archives/
+Disallow: /categories/
+Disallow: /search/
+Disallow: /*.jpg$
+Disallow: /*.png$
+
+Host: uchout.moe
+Sitemap: {{ "sitemap.xml" | absURL }}
