@@ -25,10 +25,10 @@ cover:
 ---
 
 {{< figure src="/img/self.jpg" alt="uchouT" width="300px" >}}
-{{<notice notice-info>}}
+
 - 大学牲一枚~
 - 努力学习中📕
-{{</notice>}}
+
 
 ### 一些个人网站
 [uchouT's Gensoukyo](https://drive.uchout.moe/) - 个人网盘~
