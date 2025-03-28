@@ -23,13 +23,13 @@ params:
   author: ["uchouT"] # multiple authors
   images: ["img/self.jpg"]
   DateFormat: "January 2, 2006"
-  defaultTheme: auto # dark, light
+  defaultTheme: dark # dark, light
   disableThemeToggle: false
-  utterances:
+  utteranc:
     enable: true
     repo: "uchouT/uchouT.github.io"  # 替换为你的 GitHub 用户名和仓库名
-    issueTerm: "pathname"          # 可以是 "pathname", "title" 或 "url"
-
+    issueTerm: "title"          # 可以是 "pathname", "title" 或 "url"
+    theme: "github-dark-orange"      # 主题可以是 "github-light", "github-dark", "preferred-color-scheme" 或 "dark-blue"
   ShowLastMod: true
   ShowCopyRight: true
   ShowReadingTime: false
