@@ -1,14 +1,12 @@
 {{- /* Comments area start */ -}}
 {{- /* to add comments read => https://gohugo.io/content-management/comments/ */ -}}
-{{ if .Site.Params.utteranc.enable }}
-
 <script src="https://utteranc.es/client.js"
-        repo={{ .Site.Params.utteranc.repo }}
-        issue-term={{ .Site.Params.utteranc.issueTerm }}
-        theme={{ .Site.Params.utteranc.theme }}
+        repo="uchouT/uchouT.github.io"
+        issue-term="title"
+        label="Comment"
+        theme="preferred-color-scheme"
         crossorigin="anonymous"
         async>
 </script>
-{{ end }}
 
 {{- /* Comments area end */ -}}
