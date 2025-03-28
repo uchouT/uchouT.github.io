@@ -7,4 +7,4 @@ Disallow: /*.jpg$
 Disallow: /*.png$
 
 Host: uchout.moe
-Sitemap: {{ "sitemap.xml" | absURL }}
+Sitemap: https://uchout.moe/sitemap.xml
