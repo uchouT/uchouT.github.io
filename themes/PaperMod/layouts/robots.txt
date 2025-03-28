@@ -1,7 +1,10 @@
 User-agent: *
-{{- if hugo.IsProduction | or (eq site.Params.env "production") }}
-Disallow:
-{{- else }}
-Disallow: /
-{{- end }}
+Disallow: /tags/
+Disallow: /archives/
+Disallow: /categories/
+Disallow: /search/
+Disallow: /*.jpg$
+Disallow: /*.png$
+
+Host: uchout.moe
 Sitemap: {{ "sitemap.xml" | absURL }}
