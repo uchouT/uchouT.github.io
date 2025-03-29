@@ -4,7 +4,7 @@
 }
 
 code {
-  font-family: "Consolas", "LXGWWenKaiScreenR";
+  font-family: "Consolas", "LXGW WenKai Screen";
 }
 
 .post-content code {
@@ -24,6 +24,6 @@ code {
   border-radius: var(--radius);
   overflow-x: auto;
   word-break: break-all;
-  font-family: "Consolas", "LXGWWenKaiScreenR";
+  font-family: "Consolas", "LXGW WenKai Screen";
   font-size: 15px;
 }

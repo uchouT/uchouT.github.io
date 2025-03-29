@@ -1,13 +1,5 @@
-@font-face {
-  font-family: "LXGWWenKaiScreenR";
-  src: url("/fonts/lxgwwenkaiscreen.subset.v1.235.standard.woff2");
-}
-
-/* https://www.webfontfree.com/cn/download/SFProText-Regular */
-
-
 body {
-  font-family: "LXGWWenKaiScreenR";
+  font-family: "LXGW WenKai Screen";
   font-size: 16px;
   line-height: 1.6;
   word-break: break-word;
