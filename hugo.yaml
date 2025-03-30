@@ -1,6 +1,7 @@
 baseURL: "https://uchout.moe/"
 title: uchouT's Blog
 pagination.pagerSize: 8
+defaultContentLanguage: "zh-cn"
 theme: PaperMod
 
 enableEmoji: true
