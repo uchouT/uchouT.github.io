@@ -114,7 +114,7 @@ ntfs_allow=uid=$UID,gid=$GID,prealloc
 
 ### 触控板手势优化
 
-安装 `libinput-gestures` 和 `ydotool` 。详细可以参考 [KDE 笔记本触控板手势优化 libinput-gestures + ydotool](/posts/KDE-touchpad-gesture)
+安装 `libinput-gestures` 和 `ydotool` 。详细可以参考 [KDE 笔记本触控板手势优化 libinput-gestures + ydotool](/posts/kde-touchpad-gesture/)
 
 ## 软件相关
 ### flatpak 切换为用户级安装
