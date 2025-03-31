@@ -1,6 +1,8 @@
 ---
 title: "Ani-rss + qb + alist + symlink + emby 实现的新番媒体库"
 date: 2025-01-11T23:25:26+08:00
+showLastMod: true
+lastmod: 2025-02-24
 categories:
   - 折腾日记
 tags: 

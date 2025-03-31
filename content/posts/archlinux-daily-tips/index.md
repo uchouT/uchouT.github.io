@@ -1,6 +1,8 @@
 ---
 title: "Arch Linux + KDE 日常使用的记录"
 date: 2025-02-11T23:57:49+08:00
+showLastMod: true
+lastmod: 2025-03-31T13:48:10+08:00
 tags: 
  - Arch
  - KDE
@@ -78,8 +80,11 @@ sudoedit /etc/mkinitcpio.conf
 - splashscreen: https://www.pling.com/p/2136517
 - SDDM login Theme: https://www.pling.com/p/1312658
 - Application Style: kvantum + [layan](https://www.pling.com/p/1325246)
-- Global Theme: 用的 Breeze Dark。本来想用 [Layan](https://www.pling.com/p/1325243) 的，但是应用了全局主题就会出现蜜汁黑屏，dock 栏也直接消失（此时我还不知道 plasma-framework5 这玩意）。于是直接手搓 Breeze，也达到了差不多的效果。现在知道有 framework5 这东西也不敢尝试别的主题了，毕竟我搓了好久（
-- Desktop Effects 里面勾选 Blur
+- Global Theme: [Layan](https://www.pling.com/p/1325243), 注意不要直接应用全局主题，我这里直接应用会导致黑屏，重启后才恢复，而且 dock 栏会直接消失。建议是下载了全局主题后，逐项目手动应用，dock 栏布局可能得自己手搓。
+
+Desktop Effects 里面勾选 "Blur".
+
+窗口圆角：安装 [lightlyshaders](https://github.com/a-parhom/LightlyShaders), archlinux 用户直接通过 [aur](https://aur.archlinux.org/packages/lightlyshaders-git) 安装。
 
 ### NTFS 移动硬盘挂载失败
 可以通过 `mount` 命令手动挂载，但是在桌面环境中无法通过鼠标点击弹出的菜单挂载，会显示错误信息：`wrong fs type, bad option, bad superblock on /dev/sda1, 
@@ -108,7 +113,9 @@ ntfs_allow=uid=$UID,gid=$GID,prealloc
 重启后应该就正常了。
 
 ### 触控板手势优化
-安装 `libinput-gestures` 和 `ydotool` 。详细可以参考 [KDE 笔记本触控板手势优化 libinput-gestures + ydotool](/KDE-touchpad-gesture)
+
+安装 `libinput-gestures` 和 `ydotool` 。详细可以参考 [KDE 笔记本触控板手势优化 libinput-gestures + ydotool](/posts/KDE-touchpad-gesture)
+
 ## 软件相关
 ### flatpak 切换为用户级安装
 flatpak 中默认的 remote 源是系统级安装的，占用根分区。切换为用户级安装（只为当前用户安装）方法如下：

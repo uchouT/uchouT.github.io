@@ -3,6 +3,7 @@ title: "{{ replace .Name "-" " " | title }}"
 date: {{ .Date }}
 lastmod: {{ .Date }}
 author: ["uchouT"]
+showLastMod: true
 
 categories:
 - category 1
