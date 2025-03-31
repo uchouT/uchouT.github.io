@@ -14,16 +14,9 @@
 
 {{- if (.Param "ShowLastMod") -}}
     {{ if ne (.Lastmod.Format "2006-01-02") (.Date.Format "2006-01-02") }}
-    {{- `$scratch.Add "meta" (slice (printf "Updated:&nbsp;%s" (.Lastmod.Format (.Site.Params.dateFormat | default "January 2, 2006")))) }}$`
-  {{- end -}}
+    {{- $scratch.Add "meta" (slice (printf "Updated:&nbsp;%s" (.Lastmod.Format (.Site.Params.dateFormat | default "January 2, 2006")))) }}
+    {{- end }}
 {{- end -}}
-
-
-{{- if not (.Param "hideAuthor") -}}
-{{- with (partial "author.html" .) }}
-{{- $scratch.Add "meta" (slice .) }}
-{{- end }}
-{{- end }}
 
 {{- with ($scratch.Get "meta") }}
 {{- delimit . "&nbsp;·&nbsp;" | safeHTML -}}
