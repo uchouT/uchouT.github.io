@@ -2,7 +2,7 @@
 title: "sub-pub 发布订阅模式"
 date: 2025-04-01T22:26:55+08:00
 author: ["uchouT"]
-showLastMod: true
+showLastMod: false
 
 categories:
 - 学习笔记
@@ -39,6 +39,7 @@ cover:
 本文记录学习发布订阅模式时，自己的一些理解。[Wiki](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern)
 
 >In software architecture, publish–subscribe or pub/sub is a messaging pattern where publishers categorize messages into classes that are received by subscribers. This is contrasted to the typical messaging pattern model where publishers send messages directly to subscribers.
+
 
 ## 组成
 
@@ -109,12 +110,46 @@ int main() {
 
 说明：
 
-1. 事件总线类需要同时拥有 pub 和 sub，以便统一进行广播。
-2. `std::function` 类型存储一个函数，可在需要时回调。
+1. `std::function` 类型存储一个函数，可在需要时回调。
+
+C# 示例：
+
+```csharp
+public class EventBus
+{
+    private Dictionary<string, System.Action<object[]>> events;
+
+    public void Subscribe(string eventName, System.Action<object[]> callback)
+    {   
+        // 委托方法，对应到 event 事件
+        if (!events.ContainsKey(eventName))
+        {
+            events.Add(eventName, callback);
+        }
+        else
+        {
+            events[eventName] += callback;
+        }
+    }
+
+    public void Publish(string eventName, params object[] args)
+    {
+        if(events.ContainsKey(eventName)) // 按顺序执行该事件对应的委托方法
+        {
+            events[eventName].Invoke(args);
+        }
+        else // 事件不存在
+        {
+            Debug.Log("error: " + eventName);
+        }
+    }
+}
+```
 
 ## 思考
 
-发布-订阅模式，非常适用于某一事件发生，需要有一些回应的设计场景。
+发布 - 订阅模式，非常适用于某一事件发生，需要有一些回应的设计场景。
+
 ### 订阅事件
 
 本质上是订阅者声明对某个事件 event 感兴趣，并将事件 event 发生时要进行的操作（回调函数）记录进事件总线。
