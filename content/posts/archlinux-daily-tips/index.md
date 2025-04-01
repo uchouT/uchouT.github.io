@@ -2,6 +2,7 @@
 title: "Arch Linux + KDE 日常使用的记录"
 date: 2025-02-11T23:57:49+08:00
 showLastMod: true
+showbreadcrumbs: false #顶部显示当前路径
 lastmod: 2025-03-31T13:48:10+08:00
 tags: 
  - Arch

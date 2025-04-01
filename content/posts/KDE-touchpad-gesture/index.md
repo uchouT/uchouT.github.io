@@ -7,7 +7,7 @@ tags:
  - KDE
  - Linux
  - Arch
-
+showbreadcrumbs: false #顶部显示当前路径
 ---
 目前(6.3.1) KDE Plasma 桌面自带的触控板手势只有 4 指上滑下滑，这肯定是不够用的。可以通过 [libinput-gestures](https://github.com/bulletmark/libinput-gestures) 来实现自定义笔记本触控板手势。
 
