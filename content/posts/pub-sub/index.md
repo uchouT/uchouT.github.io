@@ -8,10 +8,10 @@ categories:
 - 学习笔记
 
 tags:
-- SoftWare
+- Software
 
 keywords:
-- SoftWare
+- Software
 - publish-subscribe-pattern
 - 发布订阅模式
 - 软件设计模式
