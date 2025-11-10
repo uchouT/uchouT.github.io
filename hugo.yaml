@@ -98,6 +98,11 @@ params:
 
 menu:
   main:
+    - identifier: search
+      name: Search
+      url: /search/
+      weight: 3
+
     - identifier: categories
       name: Categories
       url: /categories
@@ -108,18 +113,8 @@ menu:
       url: /archives/
       weight: 5
 
-    - identifier: search
-      name: Search
-      url: /search/
-      weight: 6
-
-    - identifier: tags
-      name: Tags
-      url: /tags/
-      weight: 20
-      
-    - identifier: blogroll
-      name: Friends
+    - identifier: friends
+      name: Links
       url: /friends/
       weight: 30
 
