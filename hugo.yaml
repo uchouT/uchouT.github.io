@@ -102,26 +102,31 @@ menu:
       name: Categories
       url: /categories
       weight: 4
+
     - identifier: archive
       name: Archive
       url: /archives/
       weight: 5
+
     - identifier: search
       name: Search
       url: /search/
       weight: 6
+
     - identifier: tags
       name: Tags
       url: /tags/
       weight: 20
-    # - identifier: friends
-    #   name: 友人
-    #   url: /friends/
-    #   weight: 22
+      
+    - identifier: blogroll
+      name: Friends
+      url: /friends/
+      weight: 30
+
     - identifier: about
       name: About
       url: /about/
-      weight: 30
+      weight: 40
 
 # Read: https://github.com/adityatelange/hugo-PaperMod/wiki/FAQs#using-hugos-syntax-highlighter-chroma
 markup:

@@ -1,99 +1,60 @@
-.friendurl {
-  text-decoration: none !important;
-  color: black;
-  box-shadow: none !important;
+/* 友情链接卡片网格布局 */
+.links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
 }
 
-.myfriend {
-  width: 56px !important;
-  height: 56px !important;
-  border-radius: 50% !important;
-  padding: 2px;
-  margin-top: 20px !important;
-  margin-left: 14px !important;
-  background-color: #fff;
-}
-
-.frienddiv {
-  overflow: auto;
-  height: 100px;
-  width: 49%;
-  display: inline-block !important;
-  border-radius: 5px;
-  background: none;
-  -webkit-transition: all ease-out 0.3s;
-  -moz-transition: all ease-out 0.3s;
-  -o-transition: all ease-out 0.3s;
-  transition: all ease-out 0.3s;
-}
-
-.dark .frienddiv:hover {
-  background: var(--code-bg);
-}
-
-.frienddiv:hover {
-  background: var(--theme);
-  transition: transform 1s;
-  webkit-transform: scale(1.1);
-  -moz-transform: scale(1.2);
-  -ms-transform: scale(1.2);
-  -o-transform: scale(1.2);
-  transform: scale(1.1);
-}
-
-.frienddiv:hover .frienddivleft img {
-  transition: 0.9s !important;
-  -webkit-transition: 0.9s !important;
-  -moz-transition: 0.9s !important;
-  -o-transition: 0.9s !important;
-  -ms-transition: 0.9s !important;
-  transform: rotate(360deg) !important;
-  -webkit-transform: rotate(360deg) !important;
-  -moz-transform: rotate(360deg) !important;
-  -o-transform: rotate(360deg) !important;
-  -ms-transform: rotate(360deg) !important;
-}
-
-.frienddivleft {
-  width: 92px;
-  float: left;
-  margin-right: -5px;
-}
-
-.frienddivright {
-  margin-top: 18px;
-  margin-right: 18px;
-}
-
-.friendname {
-  text-overflow: ellipsis;
-  font-size: 100%;
-  margin-bottom: 5px;
-  color: var(--primary);
-}
-
-.friendinfo {
-  text-overflow: ellipsis;
-  font-size: 70%;
-  color: var(--primary);
-}
-
-@media screen and (max-width: 600px) {
-  .friendinfo {
-    display: none;
-  }
-  .frienddivleft {
-    width: 84px;
-    margin: auto;
-  }
-  .frienddivright {
+/* 链接卡片基础样式 */
+.link-card {
+    display: block;
+    color: var(--content);
+    background-color: var(--card-background);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    text-decoration: none !important; /* 强制去除下划线 */
+    border: 1px solid var(--border);
     height: 100%;
-    margin: auto;
+}
+
+.link-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.link-card-container {
     display: flex;
     align-items: center;
-    justify-content: center;
-  }
-  .friendname {
-    font-size: 18px;
-  }
+    padding: 1rem;
+}
+
+/* 头像样式 */
+.link-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-right: 1rem;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+/* 链接信息样式 */
+.link-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.link-name {
+    margin: 0 0 0.25rem 0;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: var(--primary); /* 使用主题的主色调 */
+}
+
+.link-description {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--secondary); /* 使用主题的次要文字颜色 */
 }
