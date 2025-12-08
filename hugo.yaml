@@ -49,7 +49,10 @@ params:
 
   assets:
     disableFingerprinting: true
-    favicon: "img/self_small.jpg"
+    favicon: "/img/self_small.jpg"
+    apple_touch_icon: "/img/self_small.jpg"
+    favicon32x32: "/img/self_small.jpg"
+    favicon16x16: "/img/self_small.jpg"
     
 
   label:
