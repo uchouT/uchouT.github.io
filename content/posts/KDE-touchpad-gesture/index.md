@@ -2,7 +2,7 @@
 title: "KDE 笔记本触控板手势优化 libinput-gestures + ydotool"
 date: 2025-02-24T13:47:09
 categories:
- - Linux 日常
+- Tinkering
 tags: 
  - KDE
  - Linux

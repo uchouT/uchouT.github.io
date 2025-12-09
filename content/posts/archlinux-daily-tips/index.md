@@ -9,7 +9,7 @@ tags:
  - KDE
  - Linux
 categories:
- - Linux 日常
+- Tinkering
 summary: "本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。"
 ---
 

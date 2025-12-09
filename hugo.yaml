@@ -106,20 +106,20 @@ menu:
       url: /search/
       weight: 3
 
+    - identifier: tags
+      name: Tags
+      url: /tags
+      weight: 4
+
     - identifier: categories
       name: Categories
       url: /categories
-      weight: 4
+      weight: 5
 
     - identifier: archive
       name: Archive
       url: /archives/
-      weight: 5
-
-    - identifier: friends
-      name: Links
-      url: /friends/
-      weight: 30
+      weight: 6
 
     - identifier: about
       name: About

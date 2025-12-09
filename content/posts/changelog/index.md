@@ -5,7 +5,7 @@ author: ["uchouT"]
 showLastMod: true
 
 categories:
-- 折腾日记
+- DevLog
 
 tags:
 - Software
@@ -16,7 +16,6 @@ keywords:
 - auto
 - Github-Action
 
-description: "Github push 推送版本 tag 时自动生成 CHANGELOG.md 以及 Release 信息。" # 文章描述，与搜索优化相关
 summary: "" # 文章简单描述，会展示在主页
 weight: # 输入1可以顶置文章，用来给文章展示排序，不填就默认按时间排序
 slug: ""

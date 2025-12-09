@@ -5,7 +5,7 @@ showLastMod: true
 lastmod: 2025-02-24
 showbreadcrumbs: false #顶部显示当前路径
 categories:
-  - 折腾日记
+- Tinkering
 tags: 
   - ACG
   - Torrent
