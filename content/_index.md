@@ -5,13 +5,13 @@ template = 'home.html'
 lang = 'zh'
 
 # Show footer in home page
-footer = false
+footer = true
 
 # If you don't want to display id/bio/avatar, simply comment out that line
 name = "uchouT"
 # id = "jhonwick"
 bio = "I'm learning..."
-avatar = "img/self.jpg"
+avatar = "img/self_small.jpg"
 links = [
     { name = "GitHub", icon = "github", url = "https://github.com/uchouT" },
     { name = "Twitter/x", icon = "twitter-x", url = "https://twitter.com/0x_uchouT" },

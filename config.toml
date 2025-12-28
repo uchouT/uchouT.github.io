@@ -7,7 +7,8 @@
 
 base_url = "https://uchout.moe"
 title = "uchouT's Blog"
-description = "uchouT's blog"
+description = "uchouT 的个人博客"
+author = "uchouT"
 default_language = "zh"
 theme = "serene"
 output_dir = "public"
@@ -31,6 +32,8 @@ external_links_target_blank = true
 external_links_no_follow = true
 external_links_no_referrer = true
 smart_punctuation = false
+github_alerts = true
+bottom_footnotes = true
 
 [slugify]
 paths = "on"

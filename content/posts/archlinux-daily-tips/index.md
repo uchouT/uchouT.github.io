@@ -7,18 +7,6 @@ draft = false
 [taxonomies]
 categories = ["Tinkering"]
 tags = ["KDE", "Arch", "Linux"]
-
-[extra]
-lang = "zh"
-toc = true
-comment = true
-copy = true
-outdate_alert = false
-outdate_alert_days = 120
-math = false
-mermaid = false
-featured = false
-reaction = false
 +++
 
 本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。

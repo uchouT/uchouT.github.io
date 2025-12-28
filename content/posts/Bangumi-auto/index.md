@@ -8,18 +8,6 @@ draft = false
 [taxonomies]
 categories = ["Tinkering"]
 tags = ["ACG", "Torrent", "Emby"]
-
-[extra]
-lang = "zh"
-toc = true
-comment = true
-copy = true
-outdate_alert = false
-outdate_alert_days = 120
-math = false
-mermaid = false
-featured = false
-reaction = false
 +++
 
 2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 [Ani-rss](https://github.com/wushuo894/ani-rss)，本文也作了相应修改。
