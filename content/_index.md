@@ -14,7 +14,8 @@ bio = "I'm learning..."
 avatar = "img/self.jpg"
 links = [
     { name = "GitHub", icon = "github", url = "https://github.com/uchouT" },
-    #    { name = "Twitter", icon = "twitter", url = "https://twitter.com/<your-username>" },
+    { name = "Twitter/x", icon = "twitter-x", url = "https://twitter.com/0x_uchouT" },
+    { name = "Telegram", icon = "telegram", url = "https://t.me/uchouT"},
     { name = "Email", icon = "email", url = "mailto:i@uchout.moe" },
 ]
 

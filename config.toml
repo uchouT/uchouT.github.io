@@ -26,8 +26,8 @@ highlight_themes_css = [
   { theme = "serene-light", filename = "hl-light.css" },
   { theme = "serene-dark", filename = "hl-dark.css" },
 ]
-render_emoji = false
-external_links_target_blank = false
+render_emoji = true
+external_links_target_blank = true
 external_links_no_follow = true
 external_links_no_referrer = true
 smart_punctuation = false
@@ -48,14 +48,14 @@ sections = [
 ]
 blog_section_path = "/posts"
 
-back_link_text = "Back" # Text of the back button
+back_link_text = "Return" # Text of the back button
 force_theme = false # false | "light" | "dark"
 
 footer_copyright = "© 2025 uchouT"
 footer_credits = true # Whether to show "Built with zola and serene" in footer
 
 not_found_error_text = "404 Not Found"
-not_found_recover_text = "« back to home »"
+not_found_recover_text = "« return to home »"
 
 reaction = false # Whether to enable anonymous emoji reactions (Note: You need to set up a working api endpoint to enable this feature)
 reaction_align = "right" # "left" | "center" | "right"

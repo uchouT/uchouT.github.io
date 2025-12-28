@@ -214,8 +214,7 @@ nano qb_auto.sh
 ```
 
 粘贴以下内容：
-
-{{< collapse summary=qb_auto.sh >}}
+{% detail(title="qb_auto.sh", default_open=false) %}
 ```bash
 #!/bin/bash
 torrent_name=$1
@@ -382,7 +381,9 @@ echo "HASH:${torrent_hash}" >> ${log_dir}/qb.log
 echo "Cookie:${cookie}" >> ${log_dir}/qb.log
 echo -e "-------------------------------------------------------------\n" >> ${log_dir}/qb.log
 ```
-{{< /collapse >}}
+
+{% end %}
+
 说明：
 
 - 默认情况下，保存路径为 `/root/path/to/torrent` 的种子，上传到网盘的路径为 `/path/to/torrent`，也就是会把 `/root` 部分删除。可以按需修改 `rclone_copy` 函数。
