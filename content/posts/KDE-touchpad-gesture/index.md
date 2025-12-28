@@ -1,14 +1,26 @@
----
-title: "KDE 笔记本触控板手势优化 libinput-gestures + ydotool"
-date: 2025-02-24T13:47:09
-categories:
-- Tinkering
-tags: 
- - KDE
- - Linux
- - Arch
-showbreadcrumbs: false #顶部显示当前路径
----
++++
+title = "KDE 笔记本触控板手势优化 libinput-gestures + ydotool"
+description = "Ani-rss + qb + alist + symlink + emby 实现的新番媒体库"
+date = 2025-02-24
+draft = false
+
+[taxonomies]
+categories = ["Tinkering"]
+tags = ["Arch", "Linux", "KDE"]
+
+[extra]
+lang = "zh"
+toc = true
+comment = true
+copy = true
+outdate_alert = false
+outdate_alert_days = 120
+math = false
+mermaid = false
+featured = false
+reaction = false
++++
+
 目前(6.3.1) KDE Plasma 桌面自带的触控板手势只有 4 指上滑下滑，这肯定是不够用的。可以通过 [libinput-gestures](https://github.com/bulletmark/libinput-gestures) 来实现自定义笔记本触控板手势。
 
 

@@ -1,17 +1,25 @@
----
-title: "Arch Linux + KDE 日常使用的记录"
-date: 2025-02-11T23:57:49+08:00
-showLastMod: true
-showbreadcrumbs: false #顶部显示当前路径
-lastmod: 2025-03-31T13:48:10+08:00
-tags: 
- - Arch
- - KDE
- - Linux
-categories:
-- Tinkering
-summary: "本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。"
----
++++
+title = "Arch Linux + KDE 日常使用的记录"
+description = "本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。"
+date = 2024-09-02
+draft = false
+
+[taxonomies]
+categories = ["Tinkering"]
+tags = ["KDE", "Arch", "Linux"]
+
+[extra]
+lang = "zh"
+toc = true
+comment = true
+copy = true
+outdate_alert = false
+outdate_alert_days = 120
+math = false
+mermaid = false
+featured = false
+reaction = false
++++
 
 本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。
 
