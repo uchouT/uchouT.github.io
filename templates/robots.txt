@@ -1,8 +1,7 @@
 User-agent: *
-Disallow: /tags/
-Disallow: /archives/
-Disallow: /categories/
-Disallow: /search/
+Disallow: /tags/*
+Disallow: /categories/*
+
 Disallow: /*.jpg$
 Disallow: /*.png$
 
