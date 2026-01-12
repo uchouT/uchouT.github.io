@@ -26,7 +26,7 @@ sudo ./libinput-gestures-setup install
 ```
 > Debian and Ubuntu users may also need to install libinput-tools if that package exists in your release:
 >```sh
->sudo apt-get install libinput-tools
+>sudo apt install libinput-tools
 >```
 
 ### 启动

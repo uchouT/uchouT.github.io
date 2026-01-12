@@ -7,7 +7,7 @@ draft = false
 
 [taxonomies]
 categories = ["Devlog"]
-tags = ["OS"]
+tags = ["OS", "Rust"]
 [extra]
 mermaid = true
 math = true
