@@ -2,8 +2,5 @@ User-agent: *
 Disallow: /tags/*
 Disallow: /categories/*
 
-Disallow: /*.jpg$
-Disallow: /*.png$
-
 Host: uchout.moe
 Sitemap: https://uchout.moe/sitemap.xml
