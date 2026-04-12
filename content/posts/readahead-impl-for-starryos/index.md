@@ -15,10 +15,6 @@ math = true
 
 # 1. 背景和动机
 
-{%warning(title="Warning")%}
-这节由 Gemini 生成, 由我略作修缮。
-{%end%}
-
 ## 1.1 现有 IO 机制的性能瓶颈
 
 在 StarryOS 原有的文件系统架构中，针对大文件顺序读取场景（Sequential Read），存
@@ -121,93 +117,7 @@ Cache）。当 CPU 需要数据时，直接从内存读取（命中 Cache），�
 
 对于从 ext4 磁盘读取文件的情景，StarryOS 的处理流程如下:
 
-{% mermaid() %}
-graph TD
-%% --- Layer 1: Syscall Interface ---
-subgraph "1. Syscall Layer (api/src/syscall)"
-SysRead[sys_read] -->|get_file_like| FileWrapper
-end
-
-    %% --- Layer 2: VFS Wrapper ---
-    subgraph "2. VFS Wrapper (api/src/file)"
-        FileWrapper[File::read] -->|inner.read| AxFileRead
-    end
-
-    %% --- Layer 3: ArceOS High-Level VFS ---
-    subgraph "3. ArceOS VFS (modules/axfs/highlevel)"
-        AxFileRead[axfs::File::read] --> AxFileReadAt[read_at]
-        AxFileReadAt --> BackendDispatch{FileBackend}
-
-        BackendDispatch -->|Cached| CachedRead[CachedFile::read_at]
-        BackendDispatch -->|Direct| FileNodeRead
-
-        CachedRead -->|Page Miss| FileNodeRead[FileNode::read_at]
-        CachedRead -->|Page Hit| ReturnData[Return Data from RAM]
-    end
-
-    %% --- Layer 4: File Node & Inode ---
-    subgraph "4. FS Implementation (modules/axfs/fs/ext4)"
-        FileNodeRead -->|FileNodeOps| InodeRead[Inode::read_at]
-        InodeRead -->|Lock FS| LwExt4Read[lwext4_rust::Ext4Filesystem::read_at]
-    end
-
-    %% --- Layer 5: Ext4 Library (C/Rust Boundary) ---
-    subgraph "5. lwext4 Library (External Crate)"
-        LwExt4Read -->|FFI Call| C_Ext4Read[ext4_fread]
-        C_Ext4Read -->|Block Request| C_BRead[ext4_block_read]
-        C_BRead -->|Callback| FFI_Shim[Rust FFI Shim]
-    end
-
-    %% --- Layer 6: Block Device Glue ---
-    subgraph "6. Block Device Glue (modules/axfs/fs/ext4)"
-        FFI_Shim -->|BlockDevice Trait| Ext4DiskRead[Ext4Disk::read_blocks]
-        Ext4DiskRead -->|AxBlockDevice| DriverRead[AxBlockDevice::read_block]
-    end
-
-    %% --- Layer 7: Driver Layer ---
-    subgraph "7. Driver Layer (modules/axdriver)"
-        DriverRead -->|VirtIoBlkDev| VirtIoRead[VirtIoBlk::read_block]
-        VirtIoRead -->|VirtQueue| VirtQ_Add[virtq_add_buffer]
-        VirtQ_Add -->|MMIO/PCI| Hardware[Hardware]
-    end
-
-{% end %}
-
-```
-+-------------------------------------------------------+
-|                 用户应用 (User App)                    |
-|                 调用 read(fd, buf)                     |
-+-------------------------------------------------------+
-                          |
-                          v
-+-------------------------------------------------------+
-|                 VFS 层 (axfs::highlevel)               |
-|           CachedFile::read_at (处理缓存逻辑)           |
-+-------------------------------------------------------+
-                          |
-                          v
-+-------------------------------------------------------+
-|              具体文件系统层 (lwext4_rust)              |
-|           InodeRef::read_at (解析 inode, block)        |
-+-------------------------------------------------------+
-                          |
-                          v
-+-------------------------------------------------------+
-|              块设备接口层 (axdriver::BlockDevice)       |
-|           AxBlockDevice::read_block (读写物理扇区)      |
-+-------------------------------------------------------+
-                          |
-                          v
-+-------------------------------------------------------+
-|              具体驱动层 (axdriver::virtio)              |
-|           VirtIoBlkDev::read_block (操作硬件寄存器)     |
-+-------------------------------------------------------+
-                          |
-                          v
-+-------------------------------------------------------+
-|                    硬件 (QEMU/VirtIO)                  |
-+-------------------------------------------------------+
-```
+![starryOS IO read flow](./File-read-flow.png)
 
 ## 2.2 层级简要解释
 
@@ -259,10 +169,6 @@ IO 请求策略, 按照如下的顺序依次递进:
 2. 聚合 IO 请求, 实现批量 IO 读取
 3. 引入 pending page, IO 读取任务重叠问题
 
-{%warning(title="Warning")%}
-3.2, 3,3 由 Gemini 生成
-{%end%}
-
 ## 3.1 启发式 (Heuristic) readahead 窗口更新
 
 ### 概览
@@ -278,11 +184,7 @@ IO 请求策略, 按照如下的顺序依次递进:
 待读取文件按页大小 (这里是 4kib) 被分为一段页面序列, _start_ 和 _size_ 用于表示
 预读窗口在这段页面序列中的位置, 页号从 _start_ 开始, 长度为 _size_。
 
-```
-    start          start + size
-     |----window----|
-|---------------------file----------------|
-```
+![readahead windows](./ra-windows.png)
 
 _async_size_ 表示离窗口末尾, 也就是 _start_ + _size_, 执行异步预读的距离。在我
 们的预读窗口中, 往往会超过用户请求的窗口大小, 将一系列页面提前缓存到 page cache
@@ -291,15 +193,7 @@ _async_size_ 表示离窗口末尾, 也就是 _start_ + _size_, 执行异步预�
 我们的顺序读取预期, 此时会发起一个异步预读。这个特殊的页面被标记为
 _PG_readahead_。
 
-```
-             async_size
-              |-----|
-            PG_readahead
-              |
-    start     |    start + size
-     |----window----|
-|---------------------file----------------|
-```
+![PG readahead](./pg-readahead.png)
 
 _prev_pn_ 标记上一次用户请求的末尾页面, 这个状态用于对用户的请求的顺序性判断;
 如果是顺序读取 (如前文所述, 大部分文件读取都遵循这个规律), 则正常执行预读; 如果
@@ -326,10 +220,6 @@ _max_pages_ 限定了预读的窗口大小的最大值, 需要综合内存压力
 
 ### example
 
-TODO: 补全插图
-
-![strategy](readahead-strategy.png)
-
 下面我们来结合一个具体的顺序读取用户请求, 来详细说明处理的过程。在 sys_read 系
 统调用中, 用户的请求是以字节为单位的, 为了表述方便, 下面的用户请求都转化为了以
 页面为单位。
@@ -355,6 +245,8 @@ TODO: 补全插图
 - `prev_pn`: 15
 - `max_pages`: MAX_PAGES 常量
 
+![readahead initial window](./readahead-init-window.png)
+
 **2. 顺序读取**
 
 用户按照预期, 发起了从 16 开始, _req_size_ 为 16 的请求。此时 page cache 中已经
@@ -375,6 +267,8 @@ _prev_pn_ 在每次处理完用户请求后更新为用户请求的最后一个�
 - `size`: 128
 - `async_size`: 128
 - `prev_pn`: 31
+
+![async readahead window](./readahead-async-window.png)
 
 可以看到这次用户读取之后, 窗口跳跃到了用户实际请求窗口流水线的后面了, _start_
 要比 _prev_pn_ 更大了。但是这样仍然是可以正确工作的, 因为上一个窗口读取到的数据
@@ -771,7 +665,7 @@ impl Readahead for CachedFile {
 }
 ```
 
-// TODO: 决策图
+![readahead workflow](./readahead-workflow.png)
 
 ## 4.4 聚合 IO
 
@@ -966,9 +860,7 @@ let io_worker = |bounce_buffer: &mut [u8]| -> VfsResult<()> {
 果持锁会导致持锁过长。
 
 # 5. 问题和展望
-{%warning(title="Warning")%}
-Gemini
-{%end%}
+
 ## 5.1 调度开销与异步预读的悖论
 
 在性能测试中，我们发现了一个反直觉的现象：在某些负载下，开启异步预读（Async
