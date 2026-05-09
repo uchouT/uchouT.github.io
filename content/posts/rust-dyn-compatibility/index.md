@@ -2,6 +2,7 @@
 title = "Deep Dive into Rust Dyn Compatibility"
 description = "深入解析 Rust Dyn Compatibility (Object Safety) 及其背后的 VTable 机制。从栈内存的 Sized 限制讲起，剖析 Trait Object、Fat Pointer 与 Type Erasure 的底层实现，揭示泛型、关联类型与 Self 引用破坏动态分发的物理原因，并对比 Enum Dispatch 的设计权衡。"
 date = 2026-01-11
+updated = 2026-05-09
 draft = false
 
 [taxonomies]
@@ -35,7 +36,7 @@ tags = ["Rust", "programming"]
 
 因此我们可以知道, Rust 函数的**参数**以及**返回值**大小必须是可以确定的。注意, 这里不存在例外。一个不定长的数据, 一定是以某种指针的形式被访问的, 比如 `&` 引用, `Box`, etc.
 
-```rs
+```rust
 // fn func(a: str) {}  Compile Error
 
 fn func(a: &str) {}  // YES
@@ -48,7 +49,7 @@ fn func(a: &str) {}  // YES
 
 我们知道 `dyn SomeTrait` 本身是 `!Sized` 的。如果 Trait 要求 `Self: Sized`，那么 `dyn SomeTrait` 就因无法满足这个约束而无法存在:
 
-```rs
+```rust
 trait SomeTrait: Sized {/* ... */} // Will lose dyn compatibility
 ```
 对应的 The Ref 表述为:
@@ -59,13 +60,13 @@ trait SomeTrait: Sized {/* ... */} // Will lose dyn compatibility
 
 不过我们可以把约束放在方法里, 这样相当于显式声明这个方法只能用在具体类型中。这实际上是告诉编译器: **这个方法不需要进入 vtable**。既然不进入 vtable, 也就无法通过 trait object 进行动态分发, 自然也就不必遵守 dyn compatibility 的规则了。
 
-```rs
+```rust
 trait SomeTrait {
     fn method_a(&self) where Self: Sized;
     fn method_b(&self);
 }
 ```
-```rs
+```rust
 fn main() {
     let obj: &dyn SomeTrait = get_obj();
     // obj.method_a(); Compile Error, method not exist in trait object
@@ -78,7 +79,7 @@ fn main() {
 并不是任意的指针包装都被允许 (see [arbitrary_self_types](https://github.com/rust-lang/rust/issues/44874))
 {%end%}
 
-```rs
+```rust
 trait SomeTrait {
     // fn method(self); Will lose dyn compatibility
     fn method(&self);
@@ -120,7 +121,7 @@ trait SomeTrait {
 
 一个胖指针的内部结构大致如下：
 
-```rs
+```rust
 // 示意图，在内存布局上等同于两个指针
 struct DynTraitObject {
     data: *mut (),   // 指向具体数据的指针 (类型信息被擦除，视作 void*)
@@ -134,7 +135,7 @@ struct DynTraitObject {
 
 比如我们可以把所有实现 `SomeTrait` 的类型生成的 vtable 想象为:
 
-```rs
+```rust
 struct SomeTraitVtable {
     // 1. metadata
     drop: fn(*mut ()), // 析构函数指针
@@ -152,9 +153,20 @@ struct SomeTraitVtable {
 
 如果 Trait 中包含任何无法生成这种统一 vtable 的特性（下面会细讲），它就不能用于构建 Trait Object。
 
+从编译器视角, dyn compatibility 的本质就是: 编译器能否自动为 `dyn SomeTrait` 合成一个 `impl SomeTrait for dyn SomeTrait`, 把每次调用通过 vtable 正确分发。事实上, 对于 dyn-compatible 的 trait, 编译器确实会自动生成这样的 impl, 这也是为什么我们可以直接在 `&dyn SomeTrait` 上调用 trait 方法。
+
+```rust
+// 编译器会为 dyn-compatible 的 trait 自动合成类似下面的 impl
+impl SomeTrait for dyn SomeTrait {
+    /*...*/
+}
+```
+
+所以, 判断一个 trait 是否 dyn-compatible 时, 可以自己想象手写这个 impl, 有没有足够的信息把每个方法都正确地分发出去。
+
 这样就可以来解释一个具体类型在运行时多态的过程了:
 
-```rs
+```rust
 struct SomeTraitImpl;
 
 impl SomeTrait for SomeTraitImpl {
@@ -193,7 +205,7 @@ fn dyn_dispatch(some_trait_obj: &dyn SomeTrait) {
 
 不过正如前面所说的, 我们可以通过 `where Self: Sized` 约束显式将某个方法从 vtable 中剔除，从而保留 Trait 的 **Dyn Compatibility**：
 
-```rs
+```rust
 trait SomeTrait {
     // 加上 where Self: Sized 后，该方法不会出现在 vtable 中
     // 因此 trait 仍然保持 Dyn Compatibility（只是通过 Trait Object 无法调用此方法）
@@ -206,7 +218,7 @@ trait SomeTrait {
 ```
 值得注意的是, **trait 定义上的泛型参数**是允许的，因为 **Trait Object** 本身也是单态化的：
 
-```rs
+```rust
 trait SomeTrait<T> {
     fn method(&self) -> T; // 这里的 T 是 trait 定义的一部分，已确定
 }
@@ -217,7 +229,7 @@ trait SomeTrait<T> {
 
 普通的关联类型（不带泛型）本身不破坏 **Dyn Compatibility**。但由于 vtable 中的函数签名必须是确定的，而关联类型会影响返回值或参数的类型，因此在使用 **Trait Object** 时必须显式指定关联类型的值：
 
-```rs
+```rust
 trait SomeTrait {
     type SomeType;
     fn get(&self) -> Self::SomeType;
@@ -243,7 +255,7 @@ trait SomeTrait {
 
 在 Rust 中, trait 里的 `Self` 指向 trait 实现者类型, 每个实现者的 `Self` 类型都不相同, 也就无法统一 trait method 的结构了, 所以下面的这些方法都没有 dyn compatibility:
 
-```rs
+```rust
 trait SomeTrait {
     // Self 不作为引用传入, 上面 Size 中也论证过这是不可行的
     fn method_a(self);
@@ -256,7 +268,7 @@ trait SomeTrait {
 ---
 那么如果用 `&Self` 指针的形式呢？从底层 ABI 的角度来看，所有具体类型的引用（如 `&String`, `&u8`）本质上都是一个 64 位的指针。这意味着，仅仅从**生成统一的 vtable 结构**这一物理角度来看，似乎是可以做到的。
 
-```rs
+```rust
 trait SomeTrait {
     // 物理上可以生成统一的函数指针签名 fn(*mut (), *mut ())
     fn method_a(&self, other: &Self);
@@ -274,7 +286,7 @@ trait SomeTrait {
 
 > 当通过胖指针调用方法 `some_trait_obj.method_a()` 时，运行时会先通过 `vtable` 找到对应的函数指针，然后将 `data` 作为第一个参数传入。这个具体的函数在内部清楚地知道该如何处理这个 `data` 指针（例如将其强转回 `&SomeTraitImpl`），从而正确地操作数据。
 
-```rs
+```rust
 struct DynTraitObject {
     data: *mut (),   // 这里存的就是那个 Self 实例的地址
     vtable: *const (),
@@ -330,7 +342,7 @@ struct DynTraitObject {
 
 Opaque return type 只针对于 `impl Trait` 作为返回值, 如果作为参数, 这两者是等价的:
 
-```rs
+```rust
 fn method_a<T: SomeTrait>(a:T);
 fn method_b(a: impl SomeTrait);
 ```
@@ -374,5 +386,3 @@ fn method_b(a: impl SomeTrait);
 
 *   **Dyn Dispatch**: 牺牲少量性能（胖指针、间接调用）换取架构上的解耦（遵循开闭原则）。适用于库设计和需要依赖倒置的场景。
 *   **Static Dispatch**: 牺牲灵活性换取极致性能（利于分支预测、内联）。适用于类型集合封闭、确定的场景。
-
-理解了 "Why"（底层 VTable 机制），"What"（Dyn Compatibility 规则）也就变得理所当然了。
