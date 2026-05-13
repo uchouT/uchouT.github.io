@@ -7,7 +7,7 @@ draft = false
 
 [taxonomies]
 categories = ["Learning"]
-tags = ["Rust", "programming"]
+tags = ["rust", "programming"]
 +++
 
 ## Intro
