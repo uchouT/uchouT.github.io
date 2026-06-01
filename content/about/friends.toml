@@ -5,3 +5,12 @@ rotate = false
 link =  "https://v3n0.top/"
 img = "https://raw.githubusercontent.com/U1traVeno/U1traVeno.github.io/refs/heads/main/assets/avatar-veno.jpg"
 subtitle = "Veno 的个人博客"
+
+
+[[collection]]
+type = "box"
+title = "Woman's World"
+rotate = false
+link =  "https://zhoudapig13.github.io/my-blog/#home"
+img = "https://zhoudapig13.github.io/my-blog/resources/uploads/avatar.png"
+subtitle = "周大妈的知识厨房"

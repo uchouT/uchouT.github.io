@@ -23,6 +23,3 @@ GPG fingerprint: [D807479F29CF6C637177ED0C47AE037266DF338D](../public.asc)
 
 ### Friends
 {{ collection(file="friends.toml")}}
-### 一些个人网站
-
-[uchouT's Gensoukyo](https://drive.uchout.moe/) - 个人网盘~
