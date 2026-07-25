@@ -6,8 +6,8 @@
 # =========================================================================================
 
 base_url = "https://uchout.moe"
-title = "uchouT's Blog"
-description = "uchouT 的个人博客"
+title = "uchouT's Gensokyo"
+description = "uchouT 的幻想乡"
 author = "uchouT"
 default_language = "zh"
 theme = "serene"
@@ -39,8 +39,6 @@ dark_theme = "catppuccin-mocha"
 paths = "on"
 taxonomies = "on"
 anchors = "on"
-
-# =========================================================================================
 
 [extra]
 sections = [
