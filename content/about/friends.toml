@@ -1,5 +1,13 @@
 [[collection]]
 type = "box"
+title = "Macesuted's Blog"
+rotate = false
+link =  "https://macesuted.moe/"
+img = "https://avatars.githubusercontent.com/u/57275149"
+subtitle = "我缓慢吐出一串啊吧啊吧并不再想说话"
+
+[[collection]]
+type = "box"
 title = "Veno's Blog"
 rotate = false
 link =  "https://v3n0.top/"
