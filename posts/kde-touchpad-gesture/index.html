@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+  
+    
+  
+  <meta name="description" content="Ani-rss + qb + alist + symlink + emby 实现的新番媒体库">
+
+  <title>KDE 笔记本触控板手势优化 libinput-gestures + ydotool</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<style>
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 16px;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#libinput-gestures">libinput-gestures</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#an-zhuang">安装</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#qi-dong">启动</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#ydotool">ydotool</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#an-zhuang-bing-qi-dong">安装并启动</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#pei-zhi">配置</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#libinput-gestures-pei-zhi-jie-shi">libinput-gestures 配置解释</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#ydotool-1">ydotool</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#can-kao-pei-zhi">参考配置</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>KDE 笔记本触控板手势优化 libinput-gestures + ydotool</h1>
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Feb 24, 2025</span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/arch"><span>#</span>Arch</a><a class="instant" href="https://uchout.moe/tags/linux"><span>#</span>Linux</a><a class="instant" href="https://uchout.moe/tags/kde"><span>#</span>KDE</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <p>目前(6.3.1) KDE Plasma 桌面自带的触控板手势只有 4 指上滑下滑，这肯定是不够用的。可以通过 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/bulletmark/libinput-gestures">libinput-gestures</a> 来实现自定义笔记本触控板手势。</p>
+<h2 id="libinput-gestures">libinput-gestures<a class="zola-anchor" href="#libinput-gestures" aria-label="Anchor link for: libinput-gestures" style="visibility: hidden;"></a>
+</h2>
+<h3 id="an-zhuang">安装<a class="zola-anchor" href="#an-zhuang" aria-label="Anchor link for: an-zhuang" style="visibility: hidden;"></a>
+</h3>
+<p>arch 用户直接通过 AUR 安装 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://aur.archlinux.org/packages/libinput-gestures/">libinput-gestures from AUR</a>。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">paru</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">S</span><span style="color: light-dark(#40A02B, #A6E3A1);"> libinput-gestures</span></span></code></pre>
+<p>其他发行版用户手动安装：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">git</span><span style="color: light-dark(#40A02B, #A6E3A1);"> clone</span><span style="color: light-dark(#40A02B, #A6E3A1);"> https://github.com/bulletmark/libinput-gestures.git</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">cd</span><span style="color: light-dark(#40A02B, #A6E3A1);"> libinput-gestures</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ./libinput-gestures-setup</span><span style="color: light-dark(#40A02B, #A6E3A1);"> install</span></span></code></pre>
+<blockquote>
+<p>Debian and Ubuntu users may also need to install libinput-tools if that package exists in your release:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> apt</span><span style="color: light-dark(#40A02B, #A6E3A1);"> install</span><span style="color: light-dark(#40A02B, #A6E3A1);"> libinput-tools</span></span></code></pre></blockquote>
+<h3 id="qi-dong">启动<a class="zola-anchor" href="#qi-dong" aria-label="Anchor link for: qi-dong" style="visibility: hidden;"></a>
+</h3>
+<ol>
+<li>加入 <code>input</code> 用户组：</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> gpasswd</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">a</span><span> $</span><span>USER</span><span style="color: light-dark(#40A02B, #A6E3A1);"> input</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">newgrp</span><span style="color: light-dark(#40A02B, #A6E3A1);"> input</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 立即生效</span></span></code></pre>
+<ol start="2">
+<li>添加自启动，并现在启动：</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">libinput-gestures-setup</span><span style="color: light-dark(#40A02B, #A6E3A1);"> autostart</span><span style="color: light-dark(#40A02B, #A6E3A1);"> start</span></span></code></pre><h2 id="ydotool">ydotool<a class="zola-anchor" href="#ydotool" aria-label="Anchor link for: ydotool" style="visibility: hidden;"></a>
+</h2>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/bulletmark/libinput-gestures">libinput-gestures 文档</a>建议使用的键盘模拟器是 <code>xdotool</code> ，但是它只能用在 xorg 或者 xwayland 的 app 上，而最新的 KDE 采用 wayland，因此我们用 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/ReimuNotMoe/ydotool">ydotool</a> 做替代。</p>
+<h3 id="an-zhuang-bing-qi-dong">安装并启动<a class="zola-anchor" href="#an-zhuang-bing-qi-dong" aria-label="Anchor link for: an-zhuang-bing-qi-dong" style="visibility: hidden;"></a>
+</h3>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">#</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> Arch:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> pacman</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">S</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ydotool</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">#</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> Debian based systems:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> apt</span><span style="color: light-dark(#40A02B, #A6E3A1);"> install</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ydotool</span></span></code></pre>
+<p>添加开机自启动并现在启动：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">systemctl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-user</span><span style="color: light-dark(#40A02B, #A6E3A1);"> enable</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-now</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ydotool.service</span></span></code></pre><h2 id="pei-zhi">配置<a class="zola-anchor" href="#pei-zhi" aria-label="Anchor link for: pei-zhi" style="visibility: hidden;"></a>
+</h2>
+<p>创建自定义配置：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">cp</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/libinput-gestures.conf</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ~/.config/</span><span style="color: light-dark(#7C7F93, #9399B2);"> &amp;&amp;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> kate</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ~/.config/libinput-gestures.conf</span></span></code></pre><h3 id="libinput-gestures-pei-zhi-jie-shi">libinput-gestures 配置解释<a class="zola-anchor" href="#libinput-gestures-pei-zhi-jie-shi" aria-label="Anchor link for: libinput-gestures-pei-zhi-jie-shi" style="visibility: hidden;"></a>
+</h3>
+<p>这里仅作快速上手解释，更详细请参考配置文件中的注释。
+配置格式：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="plain"><span class="giallo-l"><span>gesture &lt;action&gt; [finger_count] &lt;command&gt;</span></span></code></pre>
+<p>libinput-gestures 支持的 <code>action</code> 有：</p>
+<ul>
+<li>swipe up</li>
+<li>swipe down</li>
+<li>swipe left</li>
+<li>swipe right</li>
+<li>swipe left_up</li>
+<li>swipe left_down</li>
+<li>swipe right_up</li>
+<li>swipe right_down</li>
+<li>pinch in</li>
+<li>pinch out</li>
+<li>pinch clockwise</li>
+<li>pinch anticlockwise</li>
+<li>hold on</li>
+<li>hold on N (按压 N 秒)</li>
+</ul>
+<p><code>finger_count</code> 即同时运动的手指数，例如，三指上滑写为：<code>gesture swipe up 3</code>
+<code>command</code> 即执行的命令，可以是任何命令，包括运行脚本，因此可操作性很强。下面就是通过执行 <code>ydotool</code> 命令来实现的快捷键触发。</p>
+<h3 id="ydotool-1">ydotool<a class="zola-anchor" href="#ydotool-1" aria-label="Anchor link for: ydotool-1" style="visibility: hidden;"></a>
+</h3>
+<p>ydotool 支持键盘和鼠标模拟，详细参考：https://github.com/ReimuNotMoe/ydotool#usage</p>
+<p>值得注意的是，ydotool 的 key 指令要用 keycodes，可以在这个文件中找到 keycodes：<code>/usr/include/linux/input-event-codes.h</code> 。<code>keycodes:1</code> 表示按住对应的键，<code>keycodes:0</code> 表示释放对应的键。</p>
+<p>例如，要用 ydotool 模拟 ctrl + F12，需要依次按住 ctrl，按住 F12，再释放两个按键。ctrl(左) 的 keycodes 为 29，F12 的 keycodes 为 88，则命令写作：<code>ydotool key 29:1 88:1 88:0 29:0</code></p>
+<h3 id="can-kao-pei-zhi">参考配置<a class="zola-anchor" href="#can-kao-pei-zhi" aria-label="Anchor link for: can-kao-pei-zhi" style="visibility: hidden;"></a>
+</h3>
+<p>于是，我们便可以自定义触控板的手势，来执行一些快捷键了。下面给出我自己用的简单配置：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="plain"><span class="giallo-l"><span>gesture swipe down 3 ydotool key 29:1 88:1 88:0 29:0     # 三指下滑回到桌面</span></span>
+<span class="giallo-l"><span>gesture swipe up 3 ydotool key 29:1 68:1 68:0 29:0       # 三指上滑查看窗口</span></span>
+<span class="giallo-l"><span>gesture swipe right 4  ydotool key 56:1 15:1 15:0 56:0   # 任务窗口切换</span></span>
+<span class="giallo-l"><span>gesture swipe left 4   ydotool key 56:1 15:1 15:0 56:0</span></span>
+<span class="giallo-l"><span>gesture pinch out ydotool key 29:1 13:1 13:0 29:0        # 捏合放大（Ctrl + =）</span></span>
+<span class="giallo-l"><span>gesture pinch in ydotool key 29:1 12:1 12:0 29:0         # 捏合缩小（Ctrl + -）</span></span></code></pre>
+<p>配置完成后，需要重启 libinput-gestures 以应用：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">libinput-gestures-setup</span><span style="color: light-dark(#40A02B, #A6E3A1);"> stop</span><span style="color: light-dark(#40A02B, #A6E3A1);"> desktop</span><span style="color: light-dark(#40A02B, #A6E3A1);"> autostart</span><span style="color: light-dark(#40A02B, #A6E3A1);"> start</span></span></code></pre>
+      </article>
+
+      
+      
+
+      
+      
+      <div class="giscus"></div>
+      <script src="https://giscus.app/client.js"
+        data-repo="uchouT/uchouT.github.io"
+        data-repo-id="R_kgDOOPwy_A"
+        data-category="General"
+        data-category-id="DIC_kwDOOPwy_M4C0UcA"
+        data-mapping="title"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="https://uchout.moe/giscus-light.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+      
+    </div>
+
+    
+
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © 2025 uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+
+    <span>|</span>
+    <a
+      href="https://creativecommons.org/licenses/by/4.0/"
+      rel="license noreferrer"
+      target="_blank"
+    >
+      CC BY 4.0
+    </a>
+      </div>
+  </div>
+
+  <div class="right">
+    
+    
+      
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml">RSS</a>
+    
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml">https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+
+  </main>
+</div>
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

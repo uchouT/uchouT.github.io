@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+  
+    
+  
+  <meta name="description" content="用 C 手写 C++ 嵌入式 vtable 与 Rust 胖指针 vtable, 对比两种多态实现在内存布局、性能、扩展性上的取舍.">
+
+  <title>用 c 手搓 c++ 和 rust 两种 vtable</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<style>
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 16px;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#intro">Intro</a>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#cpp-style-vtable">cpp style vtable</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#define-vtable">define vtable</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#base-class-and-dispatch">base class and dispatch</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#default-implementations">default implementations</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#subclass-implementations">subclass implementations</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#usage">usage</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#rust-style-vtable">rust style vtable</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#define-vtable-1">define vtable</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#fat-pointer">fat pointer</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#default-implementations-1">default implementations</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#trait-implementations">trait implementations</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#usage-1">usage</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#comparison">Comparison</a>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>用 c 手搓 c++ 和 rust 两种 vtable</h1>
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">May 12, 2026</span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/rust"><span>#</span>rust</a><a class="instant" href="https://uchout.moe/tags/programming"><span>#</span>programming</a><a class="instant" href="https://uchout.moe/tags/vtable"><span>#</span>vtable</a><a class="instant" href="https://uchout.moe/tags/oop"><span>#</span>oop</a><a class="instant" href="https://uchout.moe/tags/c"><span>#</span>c</a><a class="instant" href="https://uchout.moe/tags/cpp"><span>#</span>cpp</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <h2 id="intro">Intro<a class="zola-anchor" href="#intro" aria-label="Anchor link for: intro" style="visibility: hidden;"></a>
+</h2>
+<p>最近在读 QEMU 源码, 其中的 QOM (QEMU Object Model) 是一个用 c 实现的面向对象系统. 这让我想试着自己搓 vtable 来感受一下原生支持多态的语言其底层的实现. 毕竟在计算机世界中没有魔法, 所有的控制流, 函数调用, 多态, 无非是 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://en.wikipedia.org/wiki/Program_counter">PC</a> 寄存器的地址修改.</p>
+<p>而且这也能与我先前对 rust dyn compatibility 的解读的<a href="../rust-dyn-compatibility">文章</a>对应.</p>
+<p>在本文中我将写两种 vtable:</p>
+<ol>
+<li>嵌入式 vtable, cpp 采用这种, 下文用 cpp style vtable 称呼.</li>
+<li>胖指针 vtable, rust 采用这种, 下文用 rust style vtable 称呼.</li>
+</ol>
+<p>来实现一个简单的控制台 Logger.</p>
+
+<blockquote class="callout note has-title">
+  
+  
+  <p class="title">
+    <span class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z" fill="currentColor"></path></svg>
+
+    </span>
+    <strong>Note</strong>
+  </p>
+  <div class="content">
+    <p>例子是高度简化的, 并且纯栈上分发, 也没有资源需要释放. 因此 drop, size, align 等我就不放到 vtable 中了.</p>
+<p>(主要还是因为懒</p>
+
+  </div>
+  
+</blockquote>
+
+<hr />
+<h2 id="cpp-style-vtable">cpp style vtable<a class="zola-anchor" href="#cpp-style-vtable" aria-label="Anchor link for: cpp-style-vtable" style="visibility: hidden;"></a>
+</h2>
+<h3 id="define-vtable">define vtable<a class="zola-anchor" href="#define-vtable" aria-label="Anchor link for: define-vtable" style="visibility: hidden;"></a>
+</h3>
+<p>先来定义虚函数表, 这也就是我们需要动态分发的方法:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span> Logger Logger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> enum</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>name</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>log</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>info</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>error</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> LoggerVtable</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>这里的 <code>LoggerVtable</code> 中包含了四个函数指针, 对应的即是 cpp 中的虚函数. 注意 c 的 "declaration mimics use" 的声明方式, 这个结构体实际有四个字段,分别: <code>name</code>, <code>log</code>, <code>info</code>, <code>error</code>, 每个都是指针类型.</p>
+<hr />
+<h3 id="base-class-and-dispatch">base class and dispatch<a class="zola-anchor" href="#base-class-and-dispatch" aria-label="Anchor link for: base-class-and-dispatch" style="visibility: hidden;"></a>
+</h3>
+<p>先来定义基类:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">struct</span><span> Logger </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span> LoggerVtable </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>这个就是基类, 里面包含 vtable 字段, 这也是后面方法分发的入口. 在 cpp 能通过继承实现字段复用, 这里需要复用的字段也是直接定义在这个基类中:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">struct</span><span> Logger </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span> LoggerVtable </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 复用的字段, 我随便举个例子</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>然后来提供辅助分发函数, 这就是后续类型擦除后多态函数调用的入口:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> inline</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> inline</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level </span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> inline</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> inline</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>可见, 这些辅助函数内部只是把函数调用转发到 vtable 的函数指针中.</p>
+<p>为什么 vtable 中的每个函数指针, 以及辅助分发函数都需要有 <code>Logger</code> 基类作为函数参数? 因为届时子类在多态时会类型擦除成基类, 基类持有 vtable, 可以完成方法动态分发. 作为入口其必须作为分发函数的参数; 而作为 vtable 的参数, 一方面是基类可能还有其他字段, 在提供实现的时候需要用到, 另一方面实现中可能需要调用其他虚方法, 这需要借助基类作为 vtable 跳板。因此 vtable 作为「函数接口定义」必须把基类作为 context 接入.</p>
+<hr />
+<h3 id="default-implementations">default implementations<a class="zola-anchor" href="#default-implementations" aria-label="Anchor link for: default-implementations" style="visibility: hidden;"></a>
+</h3>
+<p>在 cpp 中父类可以提供默认实现, 子类可以选择是否覆盖. 在我们的例子中, 其实就是提供一个默认的, 与 vtable 函数指针接口签名对应的函数入口:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> default_logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> default_logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>提供了通过调用 <code>log</code> 方法的 <code>info</code>, <code>error</code> 默认实现.</p>
+<p>注意, 函数签名必须和 vtable 中的一致, 否则在构造 vtable 的时候无法用这些函数指针.</p>
+<p>至此, 接口写完了, 其模拟的 cpp 代码大致如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="cpp"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">enum</span><span style="color: light-dark(#8839EF, #CBA6F7);"> class</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#179299, #94E2D5);"> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">class</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">public</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> shared fields</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        virtual</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> ~Logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#8839EF, #CBA6F7);"> default</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        virtual</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        virtual</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Level</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;"> level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        virtual</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Level</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span>INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        virtual</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Level</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span>ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<hr />
+<h3 id="subclass-implementations">subclass implementations<a class="zola-anchor" href="#subclass-implementations" aria-label="Anchor link for: subclass-implementations" style="visibility: hidden;"></a>
+</h3>
+<p>接下来可以实现一个简单的子类:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        Logger base</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        int</span><span> count</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> SimpleLogger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>这里将 <code>Logger</code> 基类直接嵌入到字段中, 这也是为什么这类 vtable 叫做「嵌入式 vtable」. 并且需要注意的是, 必须将基类嵌入到第一个字段, 否则之后需要用到的类型转换不能自动发生。</p>
+<p>之后提供实现, 注意函数签名同样需要和 vtable 对齐, 原因和上面的默认实现一模一样, 它们最终都需要构造成 vtable.</p>
+<p>这里只提供必须实现的两个实现, <code>info</code> 和 <code>error</code> 走默认实现:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">simple_logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">_lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">simple logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> simple_logger_log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level </span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        SimpleLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>c </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>SimpleLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        c</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>count</span><span style="color: light-dark(#179299, #94E2D5);"> +=</span><span style="color: light-dark(#FE640B, #FAB387);"> 1</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        switch</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>level</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">counts: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%d</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>               level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> c</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>count</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>接着构造 vtable:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span> LoggerVtable SIMPLE_LOGGER_VT </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        .name </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> simple_logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 指向我们的实现</span></span>
+<span class="giallo-l"><span>        .log </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> simple_logger_log</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>        .info </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> default_logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 采用基类默认实现</span></span>
+<span class="giallo-l"><span>        .error </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> default_logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>在构造 <code>SimpleLogger</code> 实例的时候将 vtable 字段用刚刚固定到全局静态区的 <code>SIMPLE_LOGGER_VT</code>:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span>SimpleLogger </span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">new_simple_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        SimpleLogger lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span> .base </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span> .vtable </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>SIMPLE_LOGGER_VT</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                                      .prefix </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> prefix </span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                            .count </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>接下来再为了体现多态, 再来实现一个 <code>ColorLogger</code>, 报 error 时会把 <code>ERROR</code> 标红:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        Logger base</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> ColorLogger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">color_logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">_lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">color logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> color_logger_log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level </span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        switch</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>level</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> override</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> color_logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">lg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \033</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0;31mERROR</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\033</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0m: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">               logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span> LoggerVtable COLOR_LOGGER_VT </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        .name </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .log </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_log</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .info </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> default_logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 用重载的函数指针替换默认实现的函数指针, 这就是重载的本质</span></span>
+<span class="giallo-l"><span>        .error </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>ColorLogger </span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">new_color_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        ColorLogger lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                .base </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span> .vtable </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>COLOR_LOGGER_VT</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> .prefix </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> prefix </span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>至此, 两个子类实现都完成了, 模拟的 cpp 代码如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="cpp"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">level_str</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Level</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;"> l</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        switch</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>l</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span style="color: light-dark(#DF8E1D, #F9E2AF);"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span>INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);">  return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span style="color: light-dark(#DF8E1D, #F9E2AF);"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span>ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">  //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> unreachable</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">class</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> SimpleLogger</span><span style="color: light-dark(#7C7F93, #9399B2);"> :</span><span style="color: light-dark(#8839EF, #CBA6F7);"> public</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        int</span><span> count </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">public</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> override</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#8839EF, #CBA6F7);"> return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">simple logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Level</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;"> level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> override</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">                ++</span><span>count</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);">                std</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">counts: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%d</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                            prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> level_str</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>level</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> count</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> info 和 error 走默认实现</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">class</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> ColorLogger</span><span style="color: light-dark(#7C7F93, #9399B2);"> :</span><span style="color: light-dark(#8839EF, #CBA6F7);"> public</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">public</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> override</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#8839EF, #CBA6F7);"> return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">color logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Level</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;"> level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> override</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);">                std</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                            prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> level_str</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>level</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 覆盖默认实现 —— 对应 color_logger_error</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#8839EF, #CBA6F7);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> override</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);">                std</span><span style="color: light-dark(#7C7F93, #9399B2);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \033</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0;31mERROR</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\033</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0m: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                            prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> info 仍然走基类默认</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<hr />
+<h3 id="usage">usage<a class="zola-anchor" href="#usage" aria-label="Anchor link for: usage" style="visibility: hidden;"></a>
+</h3>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">int</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> main</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        SimpleLogger sp </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> new_simple_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Nya~</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        ColorLogger cl </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> new_color_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Meow~</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 栈上动态分发, 类型擦除</span></span>
+<span class="giallo-l"><span>        Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>logger</span><span style="color: light-dark(#8839EF, #CBA6F7);">[]</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                (</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>sp</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                (</span><span>Logger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>cl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        for</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#8839EF, #CBA6F7);">int</span><span> i </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span> i </span><span style="color: light-dark(#179299, #94E2D5);">&lt;</span><span style="color: light-dark(#FE640B, #FAB387);"> 2</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#179299, #94E2D5);"> ++</span><span>i</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>logger</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>i</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">starts</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>logger</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>i</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">error happens</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>编译后运行输出:</p>
+<p><img src="https://uchout.moe/posts/two-kinds-of-vtable/./cpp.png" alt="" /></p>
+<p>完整的源码在这里可以访问: <a href="https://uchout.moe/posts/two-kinds-of-vtable/./vtable_cpp.c">vtable_cpp.c</a></p>
+<hr />
+<h2 id="rust-style-vtable">rust style vtable<a class="zola-anchor" href="#rust-style-vtable" aria-label="Anchor link for: rust-style-vtable" style="visibility: hidden;"></a>
+</h2>
+<h3 id="define-vtable-1">define vtable<a class="zola-anchor" href="#define-vtable-1" aria-label="Anchor link for: define-vtable-1" style="visibility: hidden;"></a>
+</h3>
+<p>现在来模拟 rust 的 fat pointer. 首先还是定义 vtable:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> enum</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>name</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>log</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>info</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>error</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> LoggerVtable</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>这里的函数指针签名需要用 <code>void *</code> 类型擦除指针. 因为 rust style 根本没有基类的概念, 具体见后文.</p>
+<hr />
+<h3 id="fat-pointer">fat pointer<a class="zola-anchor" href="#fat-pointer" aria-label="Anchor link for: fat-pointer" style="visibility: hidden;"></a>
+</h3>
+<p>然后就是 fat pointer 定义:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>data</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span> LoggerVtable </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> DynLogger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>fat pointer 中有两个地址, 一个指向原始数据, 一个指向 vtable。</p>
+<p>而之后的动态分发如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">logger_name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        DynLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>data</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level </span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        DynLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>data</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        DynLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>data</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        DynLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>vtable</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>data</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>fat pointer 通过 vtable 找到函数指针, 然后把 <code>data</code> 地址作为函数参数传入. <code>data</code> 和 vtable 的参数都是擦除类型的指针 <code>void *</code>, 因此正好对齐.</p>
+
+<blockquote class="callout note has-title">
+  
+  
+  <p class="title">
+    <span class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z" fill="currentColor"></path></svg>
+
+    </span>
+    <strong>Note</strong>
+  </p>
+  <div class="content">
+    <p>这里实际上模拟的, 是 rust 编译器为 dyn-compatible (object-safe) 的 trait 隐式合成的"<code>dyn Trait</code> 自身实现该 trait"那一层桥接, 概念上等价于:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 概念示意 —— 编译器合成</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#8839EF, #CBA6F7);"> for</span><span style="color: light-dark(#8839EF, #CBA6F7);"> dyn</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">    /*</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 每个方法都转发到 vtable </span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">*/</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>为了让分发函数和 vtable 中的 impl 函数指针签名一致, 上面用 c 模拟的代码也用 <code>void *self</code> 作为签名, 虽然实际中直接传 <code>DynLogger</code> 更直接。</p>
+
+  </div>
+  
+</blockquote>
+
+<hr />
+<h3 id="default-implementations-1">default implementations<a class="zola-anchor" href="#default-implementations-1" aria-label="Anchor link for: default-implementations-1" style="visibility: hidden;"></a>
+</h3>
+<p>这里提供默认实现的方式与上面的 cpp style vtable 有些不同, 不再是提供一个默认实现的函数指针. 因为现在的 vtable 函数接口签名没有基类, 只有一个擦除了类型的裸指针 <code>void *self</code>, 此时如果在默认实现中需要访问 vtable 其他函数接口, 就没有入口了.</p>
+<p>而 rust 面对这种情况的做法是单态化 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://en.wikipedia.org/wiki/Monomorphization">Monomorphization</a>: 编译器为 <code>dyn Trait</code> 生成 vtable 时, 会把每个用到的默认方法<strong>按具体类型单态化</strong>一份, 该具体类型的 vtable 槽位指向这一份特化代码; 特化体里 <code>self.log(...)</code> 因此可以静态分派到该类型的 <code>log</code> impl, 不必再走一次 vtable. 下面用 c 宏来模拟这种"按 TYPE 生成一份默认实现"的样板:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);">#</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">define</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> DEFAULT_IMPL_INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">TYPE</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;"> LOG_FN</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#EA76CB, #F5C2E7);">                           \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span> TYPE##</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">_info_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        {</span><span style="color: light-dark(#EA76CB, #F5C2E7);">                                                         \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                LOG_FN</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#EA76CB, #F5C2E7);">                          \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);">#</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">define</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> DEFAULT_IMPL_ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">TYPE</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;"> LOG_FN</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#EA76CB, #F5C2E7);">                           \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span> TYPE##</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">_error_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        {</span><span style="color: light-dark(#EA76CB, #F5C2E7);">                                                          \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                LOG_FN</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#EA76CB, #F5C2E7);">                          \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span></code></pre>
+<p>至此接口写完了, 其模拟的 rust 代码如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">enum</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    Info</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    Error</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">trait</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> level</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> msg</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">    //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 提供了默认实现</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> msg</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">        self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Level</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Info</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> msg</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">        self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Level</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Error</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<hr />
+<h3 id="trait-implementations">trait implementations<a class="zola-anchor" href="#trait-implementations" aria-label="Anchor link for: trait-implementations" style="visibility: hidden;"></a>
+</h3>
+<p>接下来还是提供两种 logger 实现, 首先是 <code>SimpleLogger</code>:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        int</span><span> count</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> SimpleLogger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> impl Logger for SimpleLogger</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">simple_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">simple logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> simple_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level </span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        SimpleLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>count</span><span style="color: light-dark(#179299, #94E2D5);"> +=</span><span style="color: light-dark(#FE640B, #FAB387);"> 1</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        switch</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>level</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> self-call 是静态的, 不走 vtable</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">counts: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%d</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">               simple_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>lg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> lg</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>count</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>这里的 impl 函数签名需要和 vtable 中定义的函数指针签名一致. 默认实现需要利用刚刚定义的辅助宏来模拟单态化:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 生成 simple_logger_info_impl 函数</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">DEFAULT_IMPL_INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>simple_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> simple_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 生成 simple_logger_error_impl 函数</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">DEFAULT_IMPL_ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>simple_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> simple_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span></code></pre>
+<p>接着创建 vtable, 放到全局静态段中:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> static</span><span> LoggerVtable SIMPLE_LOGGER_VT </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        .name </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> simple_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .log </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> simple_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 下面两个默认实现是由宏生成的</span></span>
+<span class="giallo-l"><span>        .info </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> simple_logger_info_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .error </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> simple_logger_error_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>然后是 <code>ColorLogger</code>:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> ColorLogger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">color_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">color logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> color_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> Level </span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        ColorLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>c </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span>level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        switch</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>level</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        case</span><span> ERROR</span><span style="color: light-dark(#7C7F93, #9399B2);">:</span></span>
+<span class="giallo-l"><span>                level_msg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                break</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> c</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> color_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>               level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 这里的 info 方法使用默认的</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">DEFAULT_IMPL_INFO</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>color_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> color_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 重载 error 方法</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">static</span><span style="color: light-dark(#8839EF, #CBA6F7);"> void</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> color_logger_error_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">void</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> char</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        ColorLogger </span><span style="color: light-dark(#179299, #94E2D5);">*</span><span>c </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> self</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        printf</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> %s</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \033</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0;31mERROR</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\033</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0m: </span><span style="color: light-dark(#40A02B, #A6E3A1);">%s</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> c</span><span style="color: light-dark(#7C7F93, #9399B2);">-&gt;</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">               color_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> msg</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span style="color: light-dark(#8839EF, #CBA6F7);"> static</span><span> LoggerVtable COLOR_LOGGER_VT </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        .name </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_name_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .log </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_log_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .info </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_info_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>        .error </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span> color_logger_error_impl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>到这里两种实现都完成了, 模拟的 rust 代码如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> SimpleLogger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    count</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    prefix</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">static</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> str</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#8839EF, #CBA6F7);"> for</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> SimpleLogger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">        &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">simple logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> level</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> msg</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">        self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>count </span><span style="color: light-dark(#179299, #94E2D5);">+=</span><span style="color: light-dark(#FE640B, #FAB387);"> 1</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> level_msg</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#8839EF, #CBA6F7);"> match</span><span> level</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">            Level</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Info</span><span style="color: light-dark(#179299, #94E2D5);"> =&gt;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">            Level</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Error</span><span style="color: light-dark(#179299, #94E2D5);"> =&gt;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        print!</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">            &quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#40A02B, #A6E3A1);">level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#40A02B, #A6E3A1);">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\</span><span style="color: light-dark(#EA76CB, #F5C2E7);">n</span><span style="color: light-dark(#40A02B, #A6E3A1);">counts: </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\</span><span style="color: light-dark(#EA76CB, #F5C2E7);">n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>count</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        )</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> ColorLogger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    prefix</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">static</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> str</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Logger</span><span style="color: light-dark(#8839EF, #CBA6F7);"> for</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> ColorLogger</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">        &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">color logger</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> log</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> level</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Level</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> msg</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> level_msg</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#8839EF, #CBA6F7);"> match</span><span> level</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">            Level</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Info</span><span style="color: light-dark(#179299, #94E2D5);"> =&gt;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">INFO</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">            Level</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Error</span><span style="color: light-dark(#179299, #94E2D5);"> =&gt;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ERROR</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        println!</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#40A02B, #A6E3A1);">level_msg</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#40A02B, #A6E3A1);">: </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#40A02B, #A6E3A1);">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> msg</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">str</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        println!</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">            &quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span><span style="color: light-dark(#EA76CB, #F5C2E7);">x1b</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0;31mERROR</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\</span><span style="color: light-dark(#EA76CB, #F5C2E7);">x1b</span><span style="color: light-dark(#40A02B, #A6E3A1);">[0m: </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span><span style="color: light-dark(#40A02B, #A6E3A1);">msg</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>prefix</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">name</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        )</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<hr />
+<h3 id="usage-1">usage<a class="zola-anchor" href="#usage-1" aria-label="Anchor link for: usage-1" style="visibility: hidden;"></a>
+</h3>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">int</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> main</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>        SimpleLogger sp </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> new_simple_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Nya~</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        ColorLogger cl </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> new_color_logger</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Meow~</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 动态分发, 类型擦除为胖指针</span></span>
+<span class="giallo-l"><span>        DynLogger logger</span><span style="color: light-dark(#8839EF, #CBA6F7);">[]</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span> .data </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>sp</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> .vtable </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>SIMPLE_LOGGER_VT </span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                               {</span><span> .data </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>cl</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> .vtable </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>COLOR_LOGGER_VT </span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);"> }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        for</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span style="color: light-dark(#8839EF, #CBA6F7);">int</span><span> i </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span> i </span><span style="color: light-dark(#179299, #94E2D5);">&lt;</span><span style="color: light-dark(#FE640B, #FAB387);"> 2</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#179299, #94E2D5);"> ++</span><span>i</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                logger_info</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>logger </span><span style="color: light-dark(#179299, #94E2D5);">+</span><span> i</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">starts</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                logger_error</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>logger </span><span style="color: light-dark(#179299, #94E2D5);">+</span><span> i</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">error happened</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>运行效果与 cpp style 的一致。这里手动构造了 <code>DynLogger</code> fat pointer, 而在实际中, rust 编译器会自动完成类型转换。</p>
+<p>完整的源码: <a href="https://uchout.moe/posts/two-kinds-of-vtable/./vtable_rs.c">vtable_rs.c</a>, 与之对应的 rust 源码: <a href="https://uchout.moe/posts/two-kinds-of-vtable/./vtable.rs">vtable.rs</a></p>
+<hr />
+<h2 id="comparison">Comparison<a class="zola-anchor" href="#comparison" aria-label="Anchor link for: comparison" style="visibility: hidden;"></a>
+</h2>
+<p>两种风格最本质的分歧, 是 <strong>vtable 指针放在哪</strong>.</p>
+<p>cpp style 把 vptr 嵌进了对象本身——<code>SimpleLogger</code> 里永远有一份 <code>LoggerVtable *</code> 字段; rust style 把它从对象里挪了出去, 只在做"动态分发"的那一刻才把 vtable 和数据拼成一个 fat pointer.</p>
+<p>这一个布局上的差别, 顺着推下去会得到两条比较直观的后果:</p>
+<p><strong>1. 每实例的常驻开销 vs 每引用的开销</strong></p>
+<p>cpp style 不管你这个 <code>SimpleLogger</code> 有没有被多态使用, 都会先付出一份 vptr 的空间——它<strong>摊在每个实例</strong>上. rust style 的实例本体是干净的纯数据, vtable 指针<strong>摊在每个 trait 引用</strong>上, 不用 dyn 就一分钱不花. 但是 rust style 每个 fat pointer 的体积要比 cpp style 大.</p>
+<p>因此, 当<strong>实例数远多于引用数</strong>时 (例如大量 POD 存在数组里, 偶尔取一两个出来按 trait 调用) rust style 更省空间; 反之, 引用满天飞的场景 cpp style 体积更占优.</p>
+<p><strong>2. 拓展性</strong></p>
+<p>这是 rust style 胖指针 vtable 最关键的扩展性优势, 也是为什么 rust 的 trait 这么夯.</p>
+<p>cpp style 里, 基类是写死在结构体里第一个字段的:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">typedef</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        Logger base</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">   //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> ← 这一行决定了 SimpleLogger 是 Logger 的子类</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        int</span><span> count</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span> SimpleLogger</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p><code>SimpleLogger</code> 的内存布局<strong>已经绑定到 Logger 这一棵继承链上</strong>了, 想再额外让它实现一个 <code>Render</code> 接口, 需要修改内存布局, 是侵入式的. 因此在 cpp 中一个 class 继承了什么都需要在定义的时候一次性定义完, 后续很难拓展.</p>
+<p>这其实能窥探到继承的缺陷, 更详细的内容可以看: <a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.tedinski.com/2018/02/13/inheritance-modularity.html">What's wrong with inheritance?</a></p>
+<p>rust style 完全没这个负担. <code>SimpleLogger</code> 只是一个普通的数据结构, 它<strong>自己根本不知道</strong> <code>Logger</code> 这个 trait 的存在; 是外面构造 fat pointer 的时候才把对应 vtable 挂上去的:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="c"><span class="giallo-l"><span>DynLogger lg </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span> .data </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>simple</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> .vtable </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>SIMPLE_LOGGER_VT </span><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 如果想换个 trait 视角就写一份新的 RenderVtable, 重新组一个 DynRender 就行</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> DynRender  rd = { .data = &amp;simple, .vtable = &amp;SIMPLE_RENDER_VT };</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> SimpleLogger 这个结构体一字不改.</span></span></code></pre>
+<p>这就是 rust trait 系统能"为现有类型增加新行为, 而不必修改原类型"(orphan rule 之内) 的底层机制. 数据与接口解耦.</p>
+<p><strong>3. performance</strong></p>
+<p>虚调用的跳转链, 两边都要走 <strong>handle → vtable → fn_ptr → call</strong> 这条路, 但"拿到 vtable"这一步的代价不一样.</p>
+<p>cpp style 拿到的句柄是 <code>Logger *</code>——只有 1 word, vptr 还在对象内存里, 要<strong>额外读一次内存</strong>才能拿到 vtable.</p>
+<p>rust style 拿到的句柄是 <code>DynLogger</code> 这个 fat pointer——2 words, 按 ABI 通常<strong>直接放在两个寄存器里</strong>, vtable 已经在手上, <strong>省掉了第一次 mem load</strong>.</p>
+
+<blockquote class="callout note no-title">
+  
+  
+  <div class="icon">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z" fill="currentColor"></path></svg>
+
+  </div>
+  <div class="content">
+    <p>这里对比的起点是已经拿到 pointer, 构造 fat pointer 需要额外开销.</p>
+
+  </div>
+  
+</blockquote>
+
+<table><thead><tr><th></th><th>cpp style</th><th>rust style</th></tr></thead><tbody>
+<tr><td>句柄宽度</td><td>1 word (thin pointer)</td><td>2 words (fat pointer)</td></tr>
+<tr><td>实例自身的额外开销</td><td>+1 word (vptr)</td><td>0</td></tr>
+<tr><td>dispatch 时的 mem load</td><td>2 次 (vptr, fn_ptr)</td><td>1 次 (fn_ptr)</td></tr>
+<tr><td>上转型 (concrete → abstract)</td><td>0 成本, bit pattern 重新解读</td><td>在转型点构造 <code>{data, vtable}</code> 对</td></tr>
+<tr><td>同一类型挂多个接口</td><td>改结构体, 侵入式</td><td>加一份 vtable + 一种 fat pointer, 零侵入</td></tr>
+</tbody></table>
+<p>注意 cpp 这"多一次 load"在实践里<strong>常常并不构成性能问题</strong>——dispatch 之后 method body 大概率要访问对象本身, 那次 obj load 总归省不掉, vptr 就在同一个 cache line 里, 顺手就读到了. 但在"只调一次方法, 方法体根本不碰对象"这种极端场景下, rust 的胖指针确实能跑得更轻.</p>
+<p><strong>4. default implementation style</strong></p>
+<table><thead><tr><th></th><th>cpp style</th><th>rust style</th></tr></thead><tbody>
+<tr><td>默认实现存在哪</td><td>一个独立的全局函数 <code>default_logger_info</code>, 多个子类 vtable 的 <code>info</code> 槽位<strong>共享</strong>同一份函数指针</td><td>编译器为每个用到默认的具体类型<strong>单态化</strong>一份 <code>TYPE_info_impl</code> (本文用宏模拟)</td></tr>
+<tr><td>默认体内调用其他虚方法</td><td>通过 <code>lg-&gt;vtable-&gt;log(lg, ...)</code> 再走一次 vtable 跳板</td><td>直接静态调用具体类型的 log impl, <strong>没有第二次虚分派</strong></td></tr>
+<tr><td>代码体积</td><td>一份默认 = 一份代码</td><td>N 个类型用默认 = N 份代码</td></tr>
+</tbody></table>
+<p>cpp style 是"一份代码多个 vtable 共享指针", 省代码段, 但默认体里再调虚方法还要走一遍 vtable. rust style 是"按类型展开 N 份默认", 因此 rust 的二进制体积会大一些. (不过最主要原因是 rust 优先静态链接)</p>
+<p>并且如果要 self-call 虚方法, rust style 是静态的, cpp style 还是需要走 vtable 分发.</p>
+<p><strong>5. shared fields</strong></p>
+<p>cpp style 的 <code>Logger</code> 基类带 <code>prefix</code>, 所有子类自动继承, 这是经典 OOP 那套"基类承担共享状态"的玩法.</p>
+<p>rust style 没有"基类"这个角色, trait 本身不持有数据, 所以 <code>SimpleLogger</code> 和 <code>ColorLogger</code> 各自重写了一份 <code>prefix</code> 字段. 这反映了 Rust 的设计哲学: <strong>接口 (trait) 与数据 (struct) 正交</strong>, trait 只规定行为契约, 不规定字段布局. 想共享字段, 自己另开一个 struct 然后组合.</p>
+
+      </article>
+
+      
+      
+
+      
+      
+      <div class="giscus"></div>
+      <script src="https://giscus.app/client.js"
+        data-repo="uchouT/uchouT.github.io"
+        data-repo-id="R_kgDOOPwy_A"
+        data-category="General"
+        data-category-id="DIC_kwDOOPwy_M4C0UcA"
+        data-mapping="title"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="https://uchout.moe/giscus-light.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+      
+    </div>
+
+    
+
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © 2025 uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+
+    <span>|</span>
+    <a
+      href="https://creativecommons.org/licenses/by/4.0/"
+      rel="license noreferrer"
+      target="_blank"
+    >
+      CC BY 4.0
+    </a>
+      </div>
+  </div>
+
+  <div class="right">
+    
+    
+      
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml">RSS</a>
+    
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml">https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+
+  </main>
+</div>
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

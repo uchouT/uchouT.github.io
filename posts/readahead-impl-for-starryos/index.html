@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+  
+    
+  
+  <meta name="description" content="记录为 StarryOS 实现 readahead 的开发日志">
+
+  <title>为 StarryOS 实现 readahead</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<style>
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 16px;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/copy-tex.min.js" integrity="sha384-HORx6nWi8j5/mYA+y57/9/CZc5z8HnEw4WUZWy5yOn9ToKBv1l58vJaufFAn9Zzi" crossorigin="anonymous"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        renderMathInElement(document.body, {
+            delimiters: [
+                { left: '$$', right: '$$', display: true },
+                { left: '$', right: '$', display: false },
+                { left: '\\(', right: '\\)', display: false },
+                { left: '\\[', right: '\\]', display: true }
+            ],
+            throwOnError: false
+        });
+    });
+</script>
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#1-bei-jing-he-dong-ji">1. 背景和动机</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#1-1-xian-you-io-ji-zhi-de-xing-neng-ping-jing">1.1 现有 IO 机制的性能瓶颈</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#1-2-yu-du-ji-zhi-de-bi-yao-xing-yu-li-lun-ji-chu">1.2 预读机制的必要性与理论基础</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#2-xi-tong-jia-gou">2. 系统架构</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#2-1-starros-io-du-qu-jia-gou-tu">2.1 StarrOS IO 读取架构图</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#2-2-ceng-ji-jian-yao-jie-shi">2.2 层级简要解释</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#3-he-xin-she-ji">3. 核心设计</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#3-1-qi-fa-shi-heuristic-readahead-chuang-kou-geng-xin">3.1 启发式 (Heuristic) readahead 窗口更新</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#3-2-ju-he-io-qing-qiu">3.2 聚合 IO 请求</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#3-3-pending-page-ji-zhi">3.3 Pending Page 机制</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#4-ju-ti-dai-ma-shi-xian">4. 具体代码实现</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#4-1-starryos-xian-you-ji-chu-she-shi-yi-ji-ji-cheng-ce-lue">4.1 StarryOS 现有基础设施以及集成策略</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#4-2-zhuang-tai-xiu-gai">4.2 状态修改</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#4-3-readahead-ce-lue">4.3 readahead 策略</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#4-4-ju-he-io">4.4 聚合 IO</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#5-wen-ti-he-zhan-wang">5. 问题和展望</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#5-1-diao-du-kai-xiao-yu-yi-bu-yu-du-de-bei-lun">5.1 调度开销与异步预读的悖论</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#5-2-ling-kao-bei-de-zui-hou-yi-kuai-pin-tu-scatter-gather-dma">5.2 零拷贝的最后一块拼图：Scatter-Gather DMA</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#5-3-cong-lun-xun-dao-zhong-duan-zhen-zheng-de-yi-bu-io">5.3 从轮询到中断：真正的异步 IO</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>为 StarryOS 实现 readahead</h1>
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Dec 29, 2025</span>
+            <span>Updated on <span id="updated">Jan 1, 2026</span></span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/os"><span>#</span>OS</a><a class="instant" href="https://uchout.moe/tags/rust"><span>#</span>Rust</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <h1 id="1-bei-jing-he-dong-ji">1. 背景和动机<a class="zola-anchor" href="#1-bei-jing-he-dong-ji" aria-label="Anchor link for: 1-bei-jing-he-dong-ji" style="visibility: hidden;"></a>
+</h1>
+<h2 id="1-1-xian-you-io-ji-zhi-de-xing-neng-ping-jing">1.1 现有 IO 机制的性能瓶颈<a class="zola-anchor" href="#1-1-xian-you-io-ji-zhi-de-xing-neng-ping-jing" aria-label="Anchor link for: 1-1-xian-you-io-ji-zhi-de-xing-neng-ping-jing" style="visibility: hidden;"></a>
+</h2>
+<p>在 StarryOS 原有的文件系统架构中，针对大文件顺序读取场景（Sequential Read），存
+在以下三个层面的显著性能瓶颈：</p>
+<p><strong>1. 请求粒度过于细碎（Fine-grained I/O Submission）</strong></p>
+<p>StarryOS 的缺页处理机制（Page Fault Handler）默认采用“按需调页”策略，即应用程序
+每访问一页（4KB），才触发一次底层的 I/O 请求。这种 <strong>逐页提交（Page-by-page
+Submission）</strong> 的方式没有利用块设备的批量处理能力。</p>
+<p>对于 100MB 的文件读取，内核需要发起 25,600 次独立的 I/O 请求。这意味着文件系统
+层与块设备驱动层之间存在数万次的函数调用与状态同步，造成了巨大的指令周期浪费。</p>
+<p><strong>2. 软硬交互开销巨大 (Excessive Hardware Interaction Overhead)</strong></p>
+<p>在 RISC-V QEMU/VirtIO 等虚拟化环境下，驱动层与设备的交互成本极高。每一次独立的
+I/O 提交都需要执行 MMIO 写操作（Doorbell Kick）以通知设备，并产生一次硬件中断
+（Interrupt）以通知完成。</p>
+
+<blockquote class="callout warning has-title">
+  
+  
+  <p class="title">
+    <span class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12.865 3.00017L22.3912 19.5002C22.6674 19.9785 22.5035 20.5901 22.0252 20.8662C21.8732 20.954 21.7008 21.0002 21.5252 21.0002H2.47266C1.92037 21.0002 1.47266 20.5525 1.47266 20.0002C1.47266 19.8246 1.51886 19.6522 1.60663 19.5002L11.1329 3.00017C11.4091 2.52187 12.0206 2.358 12.4989 2.63414C12.651 2.72191 12.7772 2.84815 12.865 3.00017ZM4.20471 19.0002H19.7932L11.9989 5.50017L4.20471 19.0002ZM10.9989 16.0002H12.9989V18.0002H10.9989V16.0002ZM10.9989 9.00017H12.9989V14.0002H10.9989V9.00017Z" fill="currentColor"></path></svg>
+
+    </span>
+    <strong>Warning</strong>
+  </p>
+  <div class="content">
+    <p>StarryOS 还没有实现 interrupt IO</p>
+
+  </div>
+  
+</blockquote>
+
+<p>后果：在逐页读取模式下，频繁的 MMIO 操作会导致大量的 VM-Exit（虚拟机陷入），
+Host 与 Guest 之间的上下文切换开销甚至可能超过了数据拷贝本身的耗时。这导致 CPU
+在处理大量微小请求时陷入“颠簸（Thrashing）”状态。</p>
+<p><strong>3. 串行化 I/O 模型导致的流水线停顿 (Pipeline Stalls in Serial I/O)</strong></p>
+<p>原有的 I/O 处理路径是严格串行的“请求-等待-处理”模型。缺乏预取机制意味着数据请求
+总是“被动”且“滞后”的。当应用程序处理当前数据页时，存储设备处于闲置状态；当应用
+程序需要下一页数据时，必须发起新的 I/O 请求并等待数据到位。</p>
+<p>后果：这种 “Stop-and-Wait” 模式无法利用 DMA（直接内存访问）的并行传输能力。CPU
+的计算任务与 I/O 设备的数据传输任务在时间轴上互斥，导致系统无法建立有效的处理流
+水线，I/O 延迟完全暴露在关键路径上。</p>
+<h2 id="1-2-yu-du-ji-zhi-de-bi-yao-xing-yu-li-lun-ji-chu">1.2 预读机制的必要性与理论基础<a class="zola-anchor" href="#1-2-yu-du-ji-zhi-de-bi-yao-xing-yu-li-lun-ji-chu" aria-label="Anchor link for: 1-2-yu-du-ji-zhi-de-bi-yao-xing-yu-li-lun-ji-chu" style="visibility: hidden;"></a>
+</h2>
+<p>在操作系统设计中，I/O 子系统的性能直接决定了数据密集型应用的执行效率。引入异步
+预读（Asynchronous Readahead）机制并非单纯的功能堆砌，而是为了解决计算机体系结
+构中存在的几个根本性矛盾。</p>
+<p><strong>1. 弥合 CPU 与存储设备的速度鸿沟 (Bridging the Speed Gap)</strong></p>
+<p>现代处理器的时钟频率通常在 GHz 级别（纳秒级周期），而存储设备（尤其是机械硬盘甚
+至 NVMe SSD）的访问延迟通常在微秒甚至毫秒级别。两者之间存在着 3 到 6 个数量级的
+速度差异。</p>
+<p>无预读场景（同步阻塞）：当应用程序发生缺页（Page Fault）时，CPU 被迫停止流水线，
+等待磁盘数据。对于 CPU 而言，这相当于法拉利跑车在每一个红绿灯路口都要熄火等待一
+分钟。</p>
+<p>预读场景：通过预测访问模式，操作系统提前将数据从慢速磁盘搬运至高速内存（Page
+Cache）。当 CPU 需要数据时，直接从内存读取（命中 Cache），从而将 I/O 访问延迟从
+毫秒级降低至纳秒级。</p>
+<p><strong>2. 实现计算与 I/O 的并行流水线 (Parallelism &amp; Pipelining)</strong></p>
+<p>在同步读取模型中，系统处于 “计算——等待——计算——等待” 的串行模式（Stop-and-Wait）。
+这种模式导致系统总线和 I/O 设备在 CPU 计算期间闲置，而在 I/O 传输期间 CPU 又闲
+置，资源利用率极低。</p>
+<p>预读机制的核心价值在于 掩盖延迟（Latency Hiding）。通过异步提交 I/O 请求：</p>
+<ul>
+<li>DMA（直接内存访问） 控制器负责在后台搬运数据。</li>
+<li>CPU 继续执行前台应用程序的计算逻辑。</li>
+</ul>
+<p>这种 CPU 与 DMA 的物理并行，使得数据搬运的时间被有效的计算时间所“掩盖”，从而显
+著提升了系统的整体吞吐量（Throughput）。</p>
+<p><strong>3. 摊薄 I/O 栈的固定开销 (Amortizing I/O Stack Overhead)</strong></p>
+<p>在 StarryOS 运行的 RISC-V 虚拟化环境（QEMU/VirtIO）中，发起一次 I/O 请求的<strong>固
+定开销</strong>极其昂贵，主要包括：</p>
+<ul>
+<li>软件层：系统调用上下文切换、VFS 路径解析、文件系统元数据查询。</li>
+<li>驱动层：构建描述符链、内存屏障指令。</li>
+<li>硬件层：MMIO 寄存器写入（导致 VM-Exit）、中断处理（导致流水线冲刷）。</li>
+</ul>
+<p>如果采用按需调页（逐页读取），每读取 4KB 数据就要承担一次完整的固定开销，有效载
+荷比（Payload Ratio） 极低。 将多个物理不连续的页面请求合并为一个大的 I/O 事务
+（Transaction）。通过“批发”代替“零售”，极大地摊薄了每一次 I/O 操作的固定成本，
+减少了昂贵的 MMIO 和中断次数。</p>
+<p><strong>4. 利用空间局部性原理 (Exploiting Spatial Locality)</strong></p>
+<p>绝大多数文件访问模式遵循空间局部性（Spatial Locality）原理，即一旦程序访问了文
+件的某个位置，它很有可能在不久的将来访问其相邻的位置（如视频播放、日志分析、编
+译器读取源码）。</p>
+<p>预读机制正是基于这一原理，将大概率会被访问的数据提前加载。这不仅提升了缓存命中
+率，还通过顺序 I/O 发挥了存储设备的最佳性能（减少机械磁盘的寻道时间或利用 SSD
+的内部并行通道）。</p>
+<h1 id="2-xi-tong-jia-gou">2. 系统架构<a class="zola-anchor" href="#2-xi-tong-jia-gou" aria-label="Anchor link for: 2-xi-tong-jia-gou" style="visibility: hidden;"></a>
+</h1>
+<h2 id="2-1-starros-io-du-qu-jia-gou-tu">2.1 StarrOS IO 读取架构图<a class="zola-anchor" href="#2-1-starros-io-du-qu-jia-gou-tu" aria-label="Anchor link for: 2-1-starros-io-du-qu-jia-gou-tu" style="visibility: hidden;"></a>
+</h2>
+<p>对于从 ext4 磁盘读取文件的情景，StarryOS 的处理流程如下:</p>
+<p><img src="https://uchout.moe/posts/readahead-impl-for-starryos/./File-read-flow.png" alt="starryOS IO read flow" /></p>
+<h2 id="2-2-ceng-ji-jian-yao-jie-shi">2.2 层级简要解释<a class="zola-anchor" href="#2-2-ceng-ji-jian-yao-jie-shi" aria-label="Anchor link for: 2-2-ceng-ji-jian-yao-jie-shi" style="visibility: hidden;"></a>
+</h2>
+<p><strong>系统调用层 (Syscall Layer)</strong></p>
+<p>为用户应用提供 read 系统调用, 解析文件描述符 fd 获取 <code>FileLike</code> trait object, 这里
+践行了 Unix 的 "一切皆文件" 哲学, 在我们的情境下, <code>FileLike</code> 的实现由 Starry
+api 的 <code>file::fs::File</code> VFS 包装器提供。</p>
+<p><strong>VFS 包装层 (VFS Wrapper)</strong></p>
+<p>为上层提供 <code>FileLike</code> trait 实现, 并适配 POSIX 语义(如阻塞/非阻塞 IO 处理), 将
+调用转发给内部的 ArceOS 文件 <code>axfs::File</code> 对象。非阻塞 IO 比如 socket 和 pipe,
+而对于磁盘文件则按阻塞 IO 处理。</p>
+<p><strong>ArceOS 文件系统层 (ArceOS VFS)</strong></p>
+<p>从实现了 <code>FileNodeOps</code> trait 的具体文件系统中读取数据, 写回用户请求提供的
+buffer 中, 并提供了两种写回模式:</p>
+<ul>
+<li>Direct: 直接将数据写回用户空间 (user buffer)</li>
+<li>Cached: 将数据拷贝到内核空间 (page cache) 作为缓存, 再写回用户空间。</li>
+</ul>
+<p><strong>具体文件系统</strong></p>
+<p>在我们的情景下, 文件系统是 ext4。提供 <code>FileNodeOps</code> 实现, 将逻辑转发给
+lwext4_rust 库。lwext4_rust 的工作如下:</p>
+<ol>
+<li>解析 Ext4 文件系统结构（Inode, Extent Tree），计算逻辑偏移量对应的物理块号
+(LBA)。</li>
+<li>调用实现了 <code>BlockDevice</code> 的块设备接口获取数据。</li>
+</ol>
+<p><strong>块设备适配层 (Block Device)</strong></p>
+<p>运用了依赖倒置原则, 在 axfs 中实现了 lwext4_rust 库中定义的 <code>BlockDevice</code> trait,
+并最终将块读取请求转发到驱动层。</p>
+<p><strong>驱动层 (Driver Layer)</strong></p>
+<p>组件: AxBlockDevice (即 VirtIoBlk), axdriver
+职责: 构建 VirtIO 请求，写入 VirtQueue，通知硬件（通过 MMIO 或 PCI 寄存器）。</p>
+<h1 id="3-he-xin-she-ji">3. 核心设计<a class="zola-anchor" href="#3-he-xin-she-ji" aria-label="Anchor link for: 3-he-xin-she-ji" style="visibility: hidden;"></a>
+</h1>
+<p>我们的 readahead 工作集中在 ArceOS VFS 层, 优化了 Cached 模式的缓存管理策略以及
+IO 请求策略, 按照如下的顺序依次递进:</p>
+<ol>
+<li>启发式 readahead 窗口更新策略</li>
+<li>聚合 IO 请求, 实现批量 IO 读取</li>
+<li>引入 pending page, IO 读取任务重叠问题</li>
+</ol>
+<h2 id="3-1-qi-fa-shi-heuristic-readahead-chuang-kou-geng-xin">3.1 启发式 (Heuristic) readahead 窗口更新<a class="zola-anchor" href="#3-1-qi-fa-shi-heuristic-readahead-chuang-kou-geng-xin" aria-label="Anchor link for: 3-1-qi-fa-shi-heuristic-readahead-chuang-kou-geng-xin" style="visibility: hidden;"></a>
+</h2>
+<h3 id="gai-lan">概览<a class="zola-anchor" href="#gai-lan" aria-label="Anchor link for: gai-lan" style="visibility: hidden;"></a>
+</h3>
+<p>我们借鉴了 Linux 的实现, 将预读的策略抽象为一个窗口, 窗口有五个状态:</p>
+<ul>
+<li><em>start</em></li>
+<li><em>size</em></li>
+<li><em>async_size</em></li>
+<li><em>prev_pn</em></li>
+<li><em>max_pages</em></li>
+</ul>
+<p>待读取文件按页大小 (这里是 4kib) 被分为一段页面序列, <em>start</em> 和 <em>size</em> 用于表示
+预读窗口在这段页面序列中的位置, 页号从 <em>start</em> 开始, 长度为 <em>size</em>。</p>
+<p><img src="https://uchout.moe/posts/readahead-impl-for-starryos/./ra-windows.png" alt="readahead windows" /></p>
+<p><em>async_size</em> 表示离窗口末尾, 也就是 <em>start</em> + <em>size</em>, 执行异步预读的距离。在我
+们的预读窗口中, 往往会超过用户请求的窗口大小, 将一系列页面提前缓存到 page cache
+池子中, 而 <em>async_size</em> 描述的就是发起异步预读的时机。具体来说, 当检测到用户的
+读取请求来到了 <em>start</em> + <em>size</em> - <em>async_size</em> 位置的页面时, 表明用户的读取符合
+我们的顺序读取预期, 此时会发起一个异步预读。这个特殊的页面被标记为
+<em>PG_readahead</em>。</p>
+<p><img src="https://uchout.moe/posts/readahead-impl-for-starryos/./pg-readahead.png" alt="PG readahead" /></p>
+<p><em>prev_pn</em> 标记上一次用户请求的末尾页面, 这个状态用于对用户的请求的顺序性判断;
+如果是顺序读取 (如前文所述, 大部分文件读取都遵循这个规律), 则正常执行预读; 如果
+是随机读取 (常见于数据库), 则立刻关闭预读, 不作额外的缓存冗余, 以减小内存等浪费。</p>
+<p><em>max_pages</em> 限定了预读的窗口大小的最大值, 需要综合内存压力和 page cache 池大小
+考量。</p>
+<p>预读的触发有两种:</p>
+<ul>
+<li>同步预读</li>
+<li>异步预读</li>
+</ul>
+<p>同步预读发生在 cache miss 时, 此时用户请求的数据没有在页缓存中, 为了响应用户的
+请求, 我们必须阻塞的从 IO 设备中获取响应的数据, 然后返回给用户。而每一次 IO 请
+求都有一定的开销, 比如软件应用栈, 还有硬件的开销, 比如磁盘寻道。因此在从 IO 设
+备获取数据时, 我们获取了比用户实际请求的数据更多一些存放在内核空间的 page cache
+中, 以便用户下一次顺序读取的时候可以直接从内存中获取数据。这就是同步预读。</p>
+<p>异步预读发生在用户请求命中我们标记的 <em>PG_readahead</em> 页面时。此时用户的读取符合
+我们对顺序读取的假设, 因此会立刻发起一个异步预读任务, 按流水线提前搬运下一批页
+面到 page cache 中。此时前方还有数量为 <em>async_size</em> 的页面在 page cache 中, 供
+用户消费。发起的异步预读任务与现在的 CPU 计算形成并行流水线。</p>
+<h3 id="example">example<a class="zola-anchor" href="#example" aria-label="Anchor link for: example" style="visibility: hidden;"></a>
+</h3>
+<p>下面我们来结合一个具体的顺序读取用户请求, 来详细说明处理的过程。在 sys_read 系
+统调用中, 用户的请求是以字节为单位的, 为了表述方便, 下面的用户请求都转化为了以
+页面为单位。</p>
+<p><strong>1. 初始化</strong></p>
+<p>用户请求了从 0 开始, 长度 <em>req_size</em> 为 16 的数据, 由于是初次请求, page cache
+中还没有任何缓存, 此时触发同步预读。我们会假定每个初次请求接下来会进行顺序读取,
+因此将 <em>req_size</em> * 4 的数据请求提交给 IO 设备。此时 <em>start</em> 为 0, *size* 为 64。</p>
+<p>而 <em>async_size</em> 被设置为了 <em>size</em> - <em>req_size</em> = 48, 即 <em>pg_readahead</em> 被设置在
+了 <em>start</em> + <em>size</em> - <em>async_size</em> = 16 的位置, 也就是用户请求页面中最后一页的
+下一页。这样开启了最激进的 <em>full pipeline</em>, 意味着用户再次请求下一个页面, 就会
+遇到 <em>pg_readahead</em>, 判定为顺序读取, 发起异步预读。</p>
+<p>将用户的请求处理完成后, 将 <em>prev_pn</em> 指向用户请求的最后一个页面, 也就是 15。</p>
+<p>此时窗口的状态如下:</p>
+<ul>
+<li><code>start</code>: 0</li>
+<li><code>size</code>: 64</li>
+<li><code>async_size</code>: 48</li>
+<li><code>prev_pn</code>: 15</li>
+<li><code>max_pages</code>: MAX_PAGES 常量</li>
+</ul>
+<p><img src="https://uchout.moe/posts/readahead-impl-for-starryos/./readahead-init-window.png" alt="readahead initial window" /></p>
+<p><strong>2. 顺序读取</strong></p>
+<p>用户按照预期, 发起了从 16 开始, <em>req_size</em> 为 16 的请求。此时 page cache 中已经
+拥有了我们需要的数据, 直接从内存获取数据并写回给用户。由于我们使用了 <em>full
+pipeline</em>, 在最开头的位置 (index = 16) 处设置了 <em>pg_readahead</em>, 此时触发了异步
+预读, 在不阻塞处理用户接下来的请求的同时搬运数据。</p>
+<p>窗口状态在遇到了 <em>pg_readahead</em> 的时候, 沿着流水线方向更新。<em>start</em> 设置为上一
+个窗口的末尾后一页, <em>size</em> 为前一个窗口的大小 * 2, 直到达到 <em>max_pages</em>。
+<em>async_size</em> 被设置为与新的 <em>size</em> 相同的大小, 即将新窗口的第一页标上
+<em>pg_readahead</em>, 开启 *full pipeline*。</p>
+<p><em>prev_pn</em> 在每次处理完用户请求后更新为用户请求的最后一个页面。</p>
+<p>此时窗口的状态如下:</p>
+<ul>
+<li><code>start</code>: 64</li>
+<li><code>size</code>: 128</li>
+<li><code>async_size</code>: 128</li>
+<li><code>prev_pn</code>: 31</li>
+</ul>
+<p><img src="https://uchout.moe/posts/readahead-impl-for-starryos/./readahead-async-window.png" alt="async readahead window" /></p>
+<p>可以看到这次用户读取之后, 窗口跳跃到了用户实际请求窗口流水线的后面了, <em>start</em>
+要比 <em>prev_pn</em> 更大了。但是这样仍然是可以正确工作的, 因为上一个窗口读取到的数据
+依旧存在 page cache 中。在用户新的读取请求中, 从 <em>prev_pn + 1</em> 到 <em>start</em> 这一
+段的数据仍旧可以命中缓存。不过这也对我们的 page cache 池提出了要求: 至少要能容
+纳连续的两个窗口。</p>
+<p>不过这其中的缓存可能会因为抖动被释放。此时为了不被误判为随机读取, 增强预读流水
+线的鲁棒性, 从 <em>prev_pn</em> 到 <em>start</em> 发生的小概率 cache miss, 不会被判定为随机读
+取从而关闭预读, 而是在 cache miss 处重建同步预读窗口, 开启新的流水线。</p>
+<p><em>3. 稳定状态</em></p>
+<p>由上文描述的逻辑可知, 在连续的顺序读取场景中, 最终窗口大小会生长到 <code>max_pages</code>,
+同时每个窗口的第一页有 <em>pg_readahead</em> 标记。用户读取请求到了窗口起始位置后, 立
+刻发起异步预读, 更新到下一个窗口。</p>
+<h2 id="3-2-ju-he-io-qing-qiu">3.2 聚合 IO 请求<a class="zola-anchor" href="#3-2-ju-he-io-qing-qiu" aria-label="Anchor link for: 3-2-ju-he-io-qing-qiu" style="visibility: hidden;"></a>
+</h2>
+<h3 id="wen-ti-fen-xi">问题分析<a class="zola-anchor" href="#wen-ti-fen-xi" aria-label="Anchor link for: wen-ti-fen-xi" style="visibility: hidden;"></a>
+</h3>
+<p>虽然我们引入了预读窗口机制，但在 StarryOS 的实现中，底层的 IO 提交策略仍然是“逐
+页提交”。这意味着，如果预读窗口大小为 16 页（64KB），内核会发起 16 次独立的
+<code>file.read_at</code> 调用。</p>
+<p>如前文所述，在虚拟化环境下，每一次 IO 请求都伴随着昂贵的固定开销（上下文切换、
+MMIO 陷阱、中断处理）。这种“零存整取”的策略虽然在逻辑上实现了预读，但在物理执行
+上并没有利用块设备的批量传输优势，导致 CPU 依然消耗在大量的驱动交互上。</p>
+<h3 id="yin-ru-bounce-buffer">引入 Bounce Buffer<a class="zola-anchor" href="#yin-ru-bounce-buffer" aria-label="Anchor link for: yin-ru-bounce-buffer" style="visibility: hidden;"></a>
+</h3>
+<p>为了解决这个问题，我们需要将多个物理上不连续的页面请求，合并为一次物理连续的大
+块 IO 请求。由于 StarryOS 的底层驱动接口目前不支持 Scatter-Gather I/O（即一次调
+用传入多个不连续的缓冲区），我们引入了 <strong>Bounce Buffer（跳板缓冲区）</strong> 机制。</p>
+<p>具体流程如下：</p>
+<ol>
+<li><strong>计算合并大小</strong>：统计预读窗口中需要读取的页面数量 $N$。</li>
+<li><strong>申请缓冲区</strong>：分配一个大小为 $N \times 4KB$ 的连续内存缓冲区（Bounce
+Buffer）。</li>
+<li><strong>批量读取</strong>：发起一次大小为 $N \times 4KB$ 的底层 IO 请求，将数据读入
+Bounce Buffer。这一步只产生一次驱动交互开销。</li>
+<li><strong>数据分发</strong>：在内存中通过 <code>memcpy</code>，将 Bounce Buffer 中的数据分别拷贝到
+Page Cache 的各个物理页面中。</li>
+</ol>
+<p>虽然引入了额外的内存拷贝开销，但相比于昂贵的 VM-Exit 和硬件交互开销，内存拷贝的
+成本几乎可以忽略不计。</p>
+<h3 id="huan-chong-qu-fu-yong-you-hua">缓冲区复用优化<a class="zola-anchor" href="#huan-chong-qu-fu-yong-you-hua" aria-label="Anchor link for: huan-chong-qu-fu-yong-you-hua" style="visibility: hidden;"></a>
+</h3>
+<p>在初步实现中，我们为每次预读任务动态分配 <code>Vec&lt;u8&gt;</code> 作为 Bounce Buffer。然而，频
+繁的大内存分配与回收（Allocator Thrashing）带来了新的性能抖动。</p>
+<p>为了进一步优化，我们将 Bounce Buffer 作为一个复用资源集成到了状态中, 通过复用缓
+冲区，我们消除了内存分配器的开销。</p>
+<h3 id="ju-xian-xing-yu-wei-lai-zhan-wang">局限性与未来展望<a class="zola-anchor" href="#ju-xian-xing-yu-wei-lai-zhan-wang" aria-label="Anchor link for: ju-xian-xing-yu-wei-lai-zhan-wang" style="visibility: hidden;"></a>
+</h3>
+<p>Bounce Buffer 本质上是一种“空间换时间”的折衷方案。最理想的方案是实现驱动层的
+<strong>Scatter-Gather DMA</strong> 支持，即允许驱动直接将磁盘数据传输到多个物理不连续的物理
+页中，从而实现真正的零拷贝预读。但这涉及到驱动接口的重大重构，因此目前作为未来
+工作计划。</p>
+<h2 id="3-3-pending-page-ji-zhi">3.3 Pending Page 机制<a class="zola-anchor" href="#3-3-pending-page-ji-zhi" aria-label="Anchor link for: 3-3-pending-page-ji-zhi" style="visibility: hidden;"></a>
+</h2>
+<h3 id="jing-tai-tiao-jian-liu-shui-xian-zhui-wei">竞态条件：流水线追尾<a class="zola-anchor" href="#jing-tai-tiao-jian-liu-shui-xian-zhui-wei" aria-label="Anchor link for: jing-tai-tiao-jian-liu-shui-xian-zhui-wei" style="visibility: hidden;"></a>
+</h3>
+<p>在实际运行中，我们发现了一个棘手的竞态条件。由于内存访问速度远快于磁盘 IO，用户
+线程（消费者）的读取速度往往快于后台预读任务（生产者）的数据填充速度。</p>
+<p>当用户线程“追上”了正在进行的异步预读窗口时，它会请求一个<strong>正在读取但尚未完成</strong>
+的页面。在早期的实现中，Page Cache 中此时还没有该页面的有效数据（或者页面根本未
+插入），导致系统判定为 Cache Miss，从而触发一次<strong>同步预读</strong>。</p>
+<p>这就导致了<strong>重复 IO（Duplicate IO）</strong>：同一个数据块，后台任务在读，前台线程也在
+读。这不仅浪费了 IO 带宽，还引发了严重的锁竞争。</p>
+<h3 id="jie-jue-fang-an-zhan-wei-yu-deng-dai">解决方案：占位与等待<a class="zola-anchor" href="#jie-jue-fang-an-zhan-wei-yu-deng-dai" aria-label="Anchor link for: jie-jue-fang-an-zhan-wei-yu-deng-dai" style="visibility: hidden;"></a>
+</h3>
+<p>为了解决这个问题，我们在页缓存状态中引入了 <strong>Pending Page（待定页）</strong> 概念。</p>
+<p>新的机制如下：</p>
+<ol>
+<li><strong>提前占位（Reservation）</strong>：异步预读任务在发起底层 IO 请求<strong>之前</strong>，先在
+Page Cache 中插入对应的页面，并将其标记为 <code>pending</code> 状态。</li>
+<li><strong>状态感知</strong>：当用户线程访问这些页面时，会命中 Page Cache，但发现页面处于
+<code>pending</code> 状态。</li>
+<li><strong>避免重复</strong>：用户线程识别出“数据已经在路上了”，因此<strong>不会</strong>发起新的 IO 请
+求，而是进入等待状态（或轮询），直到 <code>pending</code> 标志被清除。</li>
+<li><strong>完成通知</strong>：当后台 IO 完成数据填充后，清除 <code>pending</code> 标志，数据变为可用。
+并且通知正在等待此页面的线程。</li>
+</ol>
+<p>通过这种机制，我们确保了对于同一个物理页面，无论有多少个并发的访问请求，底层只
+会有一次物理 IO 操作，实现了同步流与异步流的完美协同。</p>
+<h1 id="4-ju-ti-dai-ma-shi-xian">4. 具体代码实现<a class="zola-anchor" href="#4-ju-ti-dai-ma-shi-xian" aria-label="Anchor link for: 4-ju-ti-dai-ma-shi-xian" style="visibility: hidden;"></a>
+</h1>
+<h2 id="4-1-starryos-xian-you-ji-chu-she-shi-yi-ji-ji-cheng-ce-lue">4.1 StarryOS 现有基础设施以及集成策略<a class="zola-anchor" href="#4-1-starryos-xian-you-ji-chu-she-shi-yi-ji-ji-cheng-ce-lue" aria-label="Anchor link for: 4-1-starryos-xian-you-ji-chu-she-shi-yi-ji-ji-cheng-ce-lue" style="visibility: hidden;"></a>
+</h2>
+<p><code>CachedFile</code> 的数据结构组成如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    inner</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Location</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    shared</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">CachedFileShared</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    in_memory</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> bool</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    append_lock</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> RwLock</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<ul>
+<li><code>inner</code>: 底层 VFS 节点的位置句柄, 提供对底层文件系统的直接访问能力。</li>
+<li><code>shared</code>: 共享缓存状态。</li>
+<li><code>in_memory</code>: 标记该文件是否位于内存文件系统 (如 tmpfs) 中。</li>
+<li><code>append_lock</code>: 追加写操作锁, 保证追加写的原子性。</li>
+</ul>
+<p>其中 <code>CachedFileShared</code> 结构如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFileShared</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    page_cache</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">LruCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    evict_listeners</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">LinkedList</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">EvictListenerAdapter</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>这里的 <code>page_cache</code> 就是 LRU 页缓存池, 并通过 <code>evict_listeners</code>
+提供页面驱逐通知机制。</p>
+<p><code>read_at</code> 方法是 <code>CachedFile</code> 对外提供的读取入口, 根据 offset ( 起始读取字节偏
+移 )、文件总长度、用户缓冲区剩余长度, 计算最终文件读取的字节区间。</p>
+<p>提供从页表写回数据到用户空间, 并计算写入长度的闭包, 传入 <code>with_pages</code> 辅助函数。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust" data-name="arceos/modules/axfs/src/highlevel/file.rs"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> read_at</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> dst</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#8839EF, #CBA6F7);"> impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> BufMut</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> offset</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> len</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>inner</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">len</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> end</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> dst</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">remaining_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">min</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>len</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        if</span><span> end</span><span style="color: light-dark(#179299, #94E2D5);"> &lt;=</span><span> offset</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            return</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">        self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">with_pages</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span>            offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>end</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">            |</span><span>_</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">            |</span><span>read</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> page</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                let</span><span> len</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>end </span><span style="color: light-dark(#179299, #94E2D5);">-</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>start</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>                dst</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">write</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">data</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">start</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">end</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">                Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>read</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> len</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        )</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p><code>with_pages</code> 的逻辑就是, 遍历用户请求的页面, 逐个检查是否在缓存中, 如果不在就逐
+个从 IO 设备读取数据。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> with_pages</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">T</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        range</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Range</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u64</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        page_initial</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> impl</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> FnOnce</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">FileNode</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">T</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        mut</span><span style="color: light-dark(#E64553, #EBA0AC);"> page_each</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> impl</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> FnMut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">T</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Range</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">T</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    )</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">T</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> file</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>inner</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">entry</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">as_file</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> initial</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> page_initial</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>file</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> start_page</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>start </span><span style="color: light-dark(#179299, #94E2D5);">/</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> end_page</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>end</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">div_ceil</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> page_offset</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>start </span><span style="color: light-dark(#179299, #94E2D5);">%</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> usize</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        for</span><span> pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> in</span><span> start_page</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>end_page</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span> page_start</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> guard</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>page_cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span> page</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">page_or_insert</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>file</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span> guard</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>            initial</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> page_each</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span>                initial</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                page</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                page_offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">end </span><span style="color: light-dark(#179299, #94E2D5);">-</span><span> page_start</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">min</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> usize</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            )</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>            page_offset</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">        Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>initial</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>我们的 readahead 修改逻辑就在这里, 不过由于 <code>with_pages</code> 已经被其他函数所依赖,
+为了不对现有结构造成破坏, 我们将 readahead 相关的逻辑封装进子模块 <code>readahead</code>,
+提供 <code>Readahead</code> trait 扩展 <code>CachedFile</code>, 暴露 <code>with_prefetch</code> 接口, 用于替换
+<code>with_pages</code>, 并提供 feature 开关。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> read_at</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> dst</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#8839EF, #CBA6F7);"> impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> BufMut</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#E64553, #EBA0AC);"> offset</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> len</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>inner</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">len</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> end</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> dst</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">remaining_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">min</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>len</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        if</span><span> end</span><span style="color: light-dark(#179299, #94E2D5);"> &lt;=</span><span> offset</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            return</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">        #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">with_prefetch</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>end</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span>read</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> page</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                let</span><span> len</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">end </span><span style="color: light-dark(#179299, #94E2D5);">-</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">start</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>                dst</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">write</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">data</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">start</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">end</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">                Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>read</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> len</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">        #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">not</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">            self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">with_pages</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span>                offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>end</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">                |</span><span>_</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">                |</span><span>read</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> page</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                    let</span><span> len</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>end </span><span style="color: light-dark(#179299, #94E2D5);">-</span><span> range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>start</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>                    dst</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">write</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">data</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">start</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">end</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">                    Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>read</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> len</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                }</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            )</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span></code></pre><h2 id="4-2-zhuang-tai-xiu-gai">4.2 状态修改<a class="zola-anchor" href="#4-2-zhuang-tai-xiu-gai" aria-label="Anchor link for: 4-2-zhuang-tai-xiu-gai" style="visibility: hidden;"></a>
+</h2>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    inner</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Location</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    shared</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">CachedFileShared</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    in_memory</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> bool</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    append_lock</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> RwLock</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span>    ra_state</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span>readahead</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">ReadaheadState</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> ReadaheadState</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    pub</span><span> start_pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    pub</span><span> size</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    pub</span><span> async_size</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    pub</span><span> prev_pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    pub</span><span> max_pages</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>向 <code>CachedFile</code> 新增 <code>ra_state</code> 状态, 用 <code>Mutex</code> 包裹提供内部可变性。</p>
+<p><code>CachedFileShared</code> 结构中：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFileShared</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    page_cache</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">LruCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span>    bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Vec</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u8</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span>    pending_pool</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Vec</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">PendingPage</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    evict_listeners</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Mutex</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">LinkedList</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">EvictListenerAdapter</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>向 <code>PageCache</code> 加入 <code>pg_readahead</code> 字段, 用于标记, <em>PG_readahead</em>; 加入
+<code>pending</code> 字段, 包裹 <code>axtask</code> 提供的 <code>WaitQueue</code>, 用于实现唤醒通知。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    addr</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VirtAddr</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>    dirty</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> bool</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span>    pg_readahead</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> bool</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    #</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">cfg</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">feature </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">readahead</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span>    pending</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Option</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">PendingPage</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> struct</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PendingPage</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    wq</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);"> axtask</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">WaitQueue</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre><h2 id="4-3-readahead-ce-lue">4.3 readahead 策略<a class="zola-anchor" href="#4-3-readahead-ce-lue" aria-label="Anchor link for: 4-3-readahead-ce-lue" style="visibility: hidden;"></a>
+</h2>
+<p><code>Readahead</code> trait 接口如下:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">super</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> trait</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Readahead</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> find_page_from_cache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        caches</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> LruCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    )</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Option</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Option</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> with_prefetch</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        range</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Range</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u64</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        write_buffer_callback</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> impl</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> FnMut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Range</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    )</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<hr />
+<p><code>find_page_from_cache</code> 从 page cache 池中查找对应的页面, 如果在 page cache 池中
+找到了对应页面, 还会检查是否有 <em>PG_readahead</em> flag, 如果有则会更新窗口状态并将
+异步预读所需要的参数计算返回 (start, size, pg_readahead pn)。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Readahead</span><span style="color: light-dark(#8839EF, #CBA6F7);"> for</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> find_page_from_cache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        caches</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> LruCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    )</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Option</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Option</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>        caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">map</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span>cache</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> new_window</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> None</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">pg_readahead </span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">                //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> find PG_readahead flag, clear the flag and prepare for async readahead</span></span>
+<span class="giallo-l"><span>                cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">pg_readahead </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#D20F39, #F38BA8);"> false</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> ra</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">ra_state</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                if</span><span> ra</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">size</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                    ra</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">update_window_for_async</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>                    new_window</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>ra</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">start_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> ra</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">size</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> ra</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">pg_readahead</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            (</span><span>cache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> new_window</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<hr />
+<p><code>with_prefetch</code> 的结构与 <code>with_pages</code> 大体一致, 也是逐页面写回用户空间。不过增
+加了 readahead 逻辑, 以及将 IO 请求聚合提交给设备。</p>
+<p>整体采用决策与执行解耦的模式。对于每一个用户请求的页面, 先判断其读取策略, 在这
+一步获取 <code>ra_state</code> 的锁, 一次性决策完, 而在接下来的具体执行阶段, 实现无
+<code>ra_state</code> 锁。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Readahead</span><span style="color: light-dark(#8839EF, #CBA6F7);"> for</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> with_prefetch</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        range</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Range</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u64</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        mut</span><span style="color: light-dark(#E64553, #EBA0AC);"> write_buffer_callback</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> impl</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> FnMut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Range</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    )</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">usize</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        /*</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">          same as `with_pages`</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        */</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        for</span><span> pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> in</span><span> start_page</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>end_page</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span> page_start</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> pending</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> None</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> async_prefetch_info</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> None</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> cache_miss</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> false</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">                //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> make decision</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> guard</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>page_cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                if</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>page</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> async_readahead</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">find_page_from_cache</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span> guard</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                    async_prefetch_info</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> async_readahead</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                    if</span><span> page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pending</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">is_none</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                        read_len</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> write_buffer_callback</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span>                            read_len</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                            page</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span>                            page_offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>range</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);">end </span><span style="color: light-dark(#179299, #94E2D5);">-</span><span> page_start</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">min</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> usize</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                        )</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                    }</span><span style="color: light-dark(#8839EF, #CBA6F7);"> else</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                        pending</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pending</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">clone</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                }</span><span style="color: light-dark(#8839EF, #CBA6F7);"> else</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                    cache_miss</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#D20F39, #F38BA8);"> true</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> cache_miss</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">                /*</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> do sync readahead logic </span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">*/</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                continue</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> pending</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">is_some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">                /*</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> pending, waiting for wake up </span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">*/</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> async_prefetch_info</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">is_some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">                /*</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> trigger async readahead </span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">*/</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span>            page_offset</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> update `prev_pn` state after handling the whole user request</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);">        self</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>ra_state</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">update_history</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>end_page</span><span style="color: light-dark(#179299, #94E2D5);"> -</span><span style="color: light-dark(#FE640B, #FAB387);"> 1</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">        Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>read_len</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p><img src="https://uchout.moe/posts/readahead-impl-for-starryos/./readahead-workflow.png" alt="readahead workflow" /></p>
+<h2 id="4-4-ju-he-io">4.4 聚合 IO<a class="zola-anchor" href="#4-4-ju-he-io" aria-label="Anchor link for: 4-4-ju-he-io" style="visibility: hidden;"></a>
+</h2>
+<p>在 StarryOS 的 <code>with_pages</code> 方法中, 向底层 IO 设备读取的逻辑在 <code>page_or_insert</code>
+方法中, 这是它的签名:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">impl</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> CachedFile</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> page_or_insert</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;</span><span style="color: light-dark(#D20F39, #F38BA8);">self</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        file</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">FileNode</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        cache</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> LruCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">        pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    )</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">&#39;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">a</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Option</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">/*</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> implementations </span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">*/</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>表示从一个 IO 设备中读取 pn 页号对应的数据。</p>
+<p>可以看到, <code>cache</code> 的类型是 <code>&amp;mut LruCache&lt;u32, PageCache&gt;</code>, 这导致在此函数调用
+期间, 上层 stack 一直持有 <code>MutexGuard</code>。这在逐页面提交 IO 的场景中是适用的, 可
+是在我们需要批量读取的场景下, 这会导致持锁时间过长。</p>
+<p>这是我们用于向底层 IO 设备提交读取请求, 将数据搬运到内核空间 (page cache) 的方
+法签名:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> io_submit</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">CachedFileShared</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    file</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">FileNode</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    in_memory</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> bool</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    start_pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    size</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    async_pg_pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">/*</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> implementations </span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">*/</span><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>我们将 <code>io_submit</code> 与 <code>CachedFile</code> 解耦了, 将所需要的状态都通过参数传入, 比如这
+里的 <code>in_memory</code>, 在 <code>page_or_insert</code> 方法中是通过 <code>self</code> 获取的。<code>start_pn</code>,
+<code>size</code>, <code>async_pg_pn</code> 对应上文提到的 <code>find_page_from_cache</code> 方法, 在判定为需要
+异步预读时提供的数据。而 <code>&amp;mut LruCache</code> 则通过 <code>&amp;CachedFileShared</code> 传入, 以获
+得对锁更细粒度的控制。</p>
+<p>此外, 还可以快速复用 <code>io_submit</code> 实现异步预读 IO 提交:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">pub</span><span style="color: light-dark(#8839EF, #CBA6F7);"> fn</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> async_prefetch</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">CachedFileShared</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    file</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#8839EF, #CBA6F7);">dyn</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> FileNodeOps</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    in_memory</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> bool</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    start_pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    size</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#E64553, #EBA0AC);">    async_pg_pn</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    let</span><span> file</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> FileNode</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">new</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>file</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">    io_submit</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>cache_shared</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>file</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> in_memory</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> start_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> size</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> async_pg_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p>参数都持有所有权, 可以方便的提交给调度器发起异步任务。</p>
+<p><code>io_submit</code> 的实现也采用决策先行, 执行在后的模式。</p>
+<p><strong>1. 待读取 pn 记录和 pending page 填充</strong></p>
+<p>先获取 page cache 锁, 扫描一遍待读取的页面是否已经存在 page cache 中。如果不存
+在, 则将 pn 号记录, 并将 pending page 插入 page cache 池, 以防止其他线程进行重
+复 IO。</p>
+<p>对于 <em>in_memory</em> 的情况 (比如 tmpfs), page cache 本身就是数据来源, 不涉及 IO 设
+备交互, 因此在扫描阶段就完成所有的数据搬运工作。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> owned</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Vec</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">u32</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Arc</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">PendingPage</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Vec</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">with_capacity</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>size</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> usize</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>page_cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    if</span><span> in_memory</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> In-memory file: populate cache with zeros, no device IO.</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        for</span><span> pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> in</span><span> start_pn</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>start_pn</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> size</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                if</span><span> pn</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> async_pg_pn</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                    page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pg_readahead </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#D20F39, #F38BA8);"> true</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">                }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">                continue</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> page</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">new</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> pn</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> async_pg_pn</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pg_readahead </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#D20F39, #F38BA8);"> true</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span>            page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">data</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">fill</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>            caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">put</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        return</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">    //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> insert pending pages into lruCache</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    for</span><span> pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> in</span><span> start_pn</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>start_pn</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span> size</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        if</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>existing</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">           if</span><span> pn</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> async_pg_pn</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                existing</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pg_readahead </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#D20F39, #F38BA8);"> true</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            continue</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        if</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">len</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">cap</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>evict_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> evict_page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">pop_lru</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">        &amp;&amp;</span><span> evict_page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pending</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">is_none</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">            //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> Cache is full: evict a non-pending page. Pending pages must not be evicted,</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">            //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> otherwise waiters may observe missing pages / incorrect data.</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">            drop</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>caches</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>            cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">evict_cache</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>file</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> evict_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span> evict_page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>            caches</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>page_cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> pending</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">alloc_pending</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> page</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">new_pending</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>pending</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">clone</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        if</span><span> async_pg_pn</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> pn</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>            page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pg_readahead </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#D20F39, #F38BA8);"> true</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span></span>
+<span class="giallo-l"><span>        caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">put</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        owned</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">push</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> pending</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span></code></pre>
+<p><strong>2. IO 读取</strong></p>
+<p>分配 <em>bounce buffer</em>, 优先从 <code>cache_shared</code> 中的缓冲区获取。这里采用非阻塞获取,
+如果遇到锁竞争, 马上停止等待, 重新在堆上分配一块。由于<em>bounce buffer</em> 马上要写
+入从 IO 设备获取的数据, 因此没有必要初始化置 0, 在这里用 unsafe 特性, 分配未初
+始化的内存来提高性能。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">unsafe</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    if</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span> guard</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">try_lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> Fast path: reuse shared buffer (no allocation).</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> guard</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">            .</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">as_mut_slice</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">            .</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get_unchecked_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>span_pages</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        io_worker</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>bounce_buffer</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span><span style="color: light-dark(#8839EF, #CBA6F7);"> else</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">        //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> Contended: keep memory bounded but avoid blocking behind other IO.</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Vec</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">with_capacity</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>span_pages</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>        bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">set_len</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>span_pages</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">        io_worker</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">as_mut_slice</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>这里通过 <code>io_worker</code> 闭包来执行将数据从底层设备搬运到 <em>bounce_buffer</em>, 并拷贝到
+page cache 的 pending page 中的工作。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="rust"><span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">let</span><span> io_worker</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span>bounce_buffer</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#8839EF, #CBA6F7);">u8</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#179299, #94E2D5);">|</span><span style="color: light-dark(#179299, #94E2D5);"> -&gt;</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> VfsResult</span><span style="color: light-dark(#04A5E5, #89DCEB);">&lt;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#04A5E5, #89DCEB);">&gt;</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>    file</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">read_at</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>bounce_buffer</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> first_pn</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> u64</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>page_cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">    for</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> _</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> in</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span>owned</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        let</span><span> offset</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#7C7F93, #9399B2);"> (</span><span>pn</span><span style="color: light-dark(#179299, #94E2D5);"> -</span><span> first_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#8839EF, #CBA6F7);"> as</span><span style="color: light-dark(#8839EF, #CBA6F7);"> usize</span><span style="color: light-dark(#179299, #94E2D5);"> *</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">        if</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get_mut</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">            //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> Pending page is found in the lruCache, which is the most case</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">            //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> page.pending.reset_ok();</span></span>
+<span class="giallo-l"><span>            page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pending </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> None</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>            page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">data</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">                .</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">copy_from_slice</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>bounce_buffer</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#8839EF, #CBA6F7);"> else</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">            warn!</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Pending page not found in cache during readahead.</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">            //</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> pending page had been evicted perhaps</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            let</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> page</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> PageCache</span><span style="color: light-dark(#179299, #94E2D5);">::</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">new</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> pn</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> async_pg_pn</span><span style="color: light-dark(#7C7F93, #9399B2);"> {</span></span>
+<span class="giallo-l"><span>                page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>pg_readahead </span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#D20F39, #F38BA8);"> true</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span>            page</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">data</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">                .</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">copy_from_slice</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#179299, #94E2D5);">&amp;</span><span>bounce_buffer</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);">..</span><span>offset</span><span style="color: light-dark(#179299, #94E2D5);"> +</span><span style="color: light-dark(#FE640B, #FAB387);"> PAGE_SIZE</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">            if</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">len</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">cap</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">get</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#179299, #94E2D5);">            &amp;&amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);"> let</span><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;"> Some</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>evict_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#8839EF, #CBA6F7);"> mut</span><span> evict_page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">pop_lru</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            {</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">                drop</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>caches</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>                cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">evict_cache</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>file</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> evict_pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;</span><span style="color: light-dark(#8839EF, #CBA6F7);">mut</span><span> evict_page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#179299, #94E2D5);">?</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span>                caches</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> cache_shared</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span>page_cache</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">lock</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">            }</span></span>
+<span class="giallo-l"><span>            caches</span><span style="color: light-dark(#179299, #94E2D5);">.</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">put</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span>pn</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span> page</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">        }</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">    }</span></span>
+<span class="giallo-l"><span style="color: light-dark(#DF8E1D, #F9E2AF);font-style: italic;">    Ok</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<p>在涉及与 IO 设备的交互过程中, page cache 的锁都没有持有, 因为这一步是耗时的, 如
+果持锁会导致持锁过长。</p>
+<h1 id="5-wen-ti-he-zhan-wang">5. 问题和展望<a class="zola-anchor" href="#5-wen-ti-he-zhan-wang" aria-label="Anchor link for: 5-wen-ti-he-zhan-wang" style="visibility: hidden;"></a>
+</h1>
+<h2 id="5-1-diao-du-kai-xiao-yu-yi-bu-yu-du-de-bei-lun">5.1 调度开销与异步预读的悖论<a class="zola-anchor" href="#5-1-diao-du-kai-xiao-yu-yi-bu-yu-du-de-bei-lun" aria-label="Anchor link for: 5-1-diao-du-kai-xiao-yu-yi-bu-yu-du-de-bei-lun" style="visibility: hidden;"></a>
+</h2>
+<p>在性能测试中，我们发现了一个反直觉的现象：在某些负载下，开启异步预读（Async
+Readahead）后的性能提升并不明显，甚至在极端情况下不如纯同步预读。</p>
+<p>经过深入分析，我们发现瓶颈转移到了 <strong>任务调度（Task Scheduling）</strong> 上。目前
+StarryOS 基于 ArceOS 的协作式调度器，在处理高频的短任务（如频繁触发的异步预读协
+程）时，上下文切换（Context Switch）的开销变得不可忽视。</p>
+<p>当 IO 设备（如 NVMe SSD 或高性能 VirtIO）的速度足够快，而每次 IO 请求的数据量又
+较小时，CPU 可能会花费更多的时间在“切换到后台预读任务”和“切换回前台应用”之间，
+而不是真正执行 IO 逻辑。这种 <strong>调度开销（Scheduling Overhead）</strong> 抵消了流水线带
+来的并行收益。</p>
+<p><strong>未来方向</strong>：</p>
+<ul>
+<li>优化调度器路径，减少协程切换的指令周期。</li>
+<li>探索 <strong>Batch Scheduling</strong>，将多个小的预读任务合并为一个大的后台任务执行。</li>
+</ul>
+<h2 id="5-2-ling-kao-bei-de-zui-hou-yi-kuai-pin-tu-scatter-gather-dma">5.2 零拷贝的最后一块拼图：Scatter-Gather DMA<a class="zola-anchor" href="#5-2-ling-kao-bei-de-zui-hou-yi-kuai-pin-tu-scatter-gather-dma" aria-label="Anchor link for: 5-2-ling-kao-bei-de-zui-hou-yi-kuai-pin-tu-scatter-gather-dma" style="visibility: hidden;"></a>
+</h2>
+<p>虽然引入 Bounce Buffer 解决了驱动交互次数过多的问题，但它本质上仍然引入了一次额
+外的内存拷贝（Bounce Buffer -&gt; Page Cache）。对于内存带宽敏感型应用，这依然是一
+个瓶颈。</p>
+<p>真正的零拷贝（Zero Copy）预读需要驱动层支持 <strong>Scatter-Gather DMA</strong>。即允许文件
+系统层构建一个包含多个物理不连续页面的描述符链（Descriptor Chain），直接传递给
+VirtIO 驱动。驱动程序通知硬件直接将数据 DMA 到这些离散的物理页中，从而完全消除
+CPU 参与的数据拷贝。</p>
+<p>这需要对现有的 <code>axdriver</code> 和 <code>virtio</code> 驱动进行重构，支持传递 <code>IoVec</code> 或类似的离
+散内存结构。</p>
+<h2 id="5-3-cong-lun-xun-dao-zhong-duan-zhen-zheng-de-yi-bu-io">5.3 从轮询到中断：真正的异步 IO<a class="zola-anchor" href="#5-3-cong-lun-xun-dao-zhong-duan-zhen-zheng-de-yi-bu-io" aria-label="Anchor link for: 5-3-cong-lun-xun-dao-zhong-duan-zhen-zheng-de-yi-bu-io" style="visibility: hidden;"></a>
+</h2>
+<p>目前 StarryOS 的 VirtIO 驱动仍采用 <strong>轮询（Polling）</strong> 模式等待 IO 完成。这意味
+着即使在等待 IO 时，CPU 也在空转检查状态位，或者依赖调度器轮询。</p>
+<p>虽然预读机制通过批处理减少了提交端的开销，但完成端的轮询依然占用宝贵的 CPU 周期，
+且无法让 CPU 进入低功耗状态。</p>
+<p><strong>未来计划</strong>：</p>
+<ul>
+<li>实现基于 <strong>中断（Interrupt）</strong> 的异步通知机制。</li>
+<li>配合 Rust 的 <code>Waker/Poll</code> 异步原语，实现真正的事件驱动 IO。当 IO 完成时，硬件
+中断唤醒对应的 <code>Future</code>，从而实现真正的零阻塞。</li>
+</ul>
+
+      </article>
+
+      
+      
+
+      
+      
+      <div class="giscus"></div>
+      <script src="https://giscus.app/client.js"
+        data-repo="uchouT/uchouT.github.io"
+        data-repo-id="R_kgDOOPwy_A"
+        data-category="General"
+        data-category-id="DIC_kwDOOPwy_M4C0UcA"
+        data-mapping="title"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="https://uchout.moe/giscus-light.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+      
+    </div>
+
+    
+
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © 2025 uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+
+    <span>|</span>
+    <a
+      href="https://creativecommons.org/licenses/by/4.0/"
+      rel="license noreferrer"
+      target="_blank"
+    >
+      CC BY 4.0
+    </a>
+      </div>
+  </div>
+
+  <div class="right">
+    
+    
+      
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml">RSS</a>
+    
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml">https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+
+  </main>
+</div>
+
+  
+<script src="/js/lightense.min.js"></script>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true });
+</script>
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

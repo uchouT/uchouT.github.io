@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+  
+    
+  
+  <meta name="description" content="记录一套运行在 Proxmox VE 上的 Homelab：通过虚拟路由、IPv6 和 DMZ 划分网络边界，并使用 LXC、Nginx 与 ZeroTier 承载内外网服务。">
+
+  <title>一台 R730 的 Homelab：组网、公网访问与远程使用</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<style>
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 16px;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#sui-sui-nian">碎碎念</a>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#huan-jing">环境</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#ying-jian">硬件</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#cun-chu">存储</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#wang-luo">网络</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#zu-wang">组网</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#internet-setup">Internet Setup</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#public-access">Public Access</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#shi-yong">使用</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#web">web</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#p2p-fang-wen">P2P 访问</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#tou-ming-dai-li">透明代理</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#yuan-cheng-fang-wen-pc">远程访问 PC</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#zong-jie">总结</a>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>一台 R730 的 Homelab：组网、公网访问与远程使用</h1>
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Jul 27, 2026</span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/homelab"><span>#</span>homelab</a><a class="instant" href="https://uchout.moe/tags/linux"><span>#</span>Linux</a><a class="instant" href="https://uchout.moe/tags/proxmox"><span>#</span>proxmox</a><a class="instant" href="https://uchout.moe/tags/pve"><span>#</span>pve</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <h2 id="sui-sui-nian">碎碎念<a class="zola-anchor" href="#sui-sui-nian" aria-label="Anchor link for: sui-sui-nian" style="visibility: hidden;"></a>
+</h2>
+<p>机器是去年寒假从我的菩萨朋友 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://macesuted.moe">@Macesuted</a> 家里迁过来的. 还记得他手里攥着满满一叠「黄金」造访我家的样子:</p>
+<figure>
+    <img
+        src="memory_showup.jpg"
+        
+        
+         width="363"
+    >
+    
+</figure>
+<p>他第二天还要回上海, 所以跟我一起装完硬件就匆匆离去了, 他真的, 我哭死. 感谢我的大善人朋友 :)</p>
+<p>截至写此文的时候, 服务器已经稳定运行大半年, 除了不久前才发生的停电事件, 一次也没有 down 过, 还是非常稳定的. 其实很早就想分享一下这套架构的, 可是一直没有时间 (<del>其实是因为懒</del>), 而最近在外实习, 进一步感受到了这套 homelab 方案的优雅丝滑, 遂有了此文.</p>
+<hr />
+<h2 id="huan-jing">环境<a class="zola-anchor" href="#huan-jing" aria-label="Anchor link for: huan-jing" style="visibility: hidden;"></a>
+</h2>
+<h3 id="ying-jian">硬件<a class="zola-anchor" href="#ying-jian" aria-label="Anchor link for: ying-jian" style="visibility: hidden;"></a>
+</h3>
+<p><img src="https://uchout.moe/posts/my-homelab/server.png" alt="Dell R730" /></p>
+<table><thead><tr><th style="text-align: left">Hardware</th><th style="text-align: left">Configuration</th></tr></thead><tbody>
+<tr><td style="text-align: left">Server</td><td style="text-align: left">Dell PowerEdge R730 (16 盘位 x 2.5 寸)</td></tr>
+<tr><td style="text-align: left">CPUs</td><td style="text-align: left">56 x Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz (2 Sockets)</td></tr>
+<tr><td style="text-align: left">RAM</td><td style="text-align: left">6 x 16G DDR4 ECC</td></tr>
+<tr><td style="text-align: left">RAID</td><td style="text-align: left">Dell PERC H730 Mini</td></tr>
+<tr><td style="text-align: left">Storage</td><td style="text-align: left">8 x 900G SAS HDD</td></tr>
+<tr><td style="text-align: left">Network</td><td style="text-align: left">四口千兆电口</td></tr>
+<tr><td style="text-align: left">Power</td><td style="text-align: left">750W EPP, 可 1+1 冗余升级</td></tr>
+</tbody></table>
+<p>机器安装 Proxmox VE.</p>
+<hr />
+<h3 id="cun-chu">存储<a class="zola-anchor" href="#cun-chu" aria-label="Anchor link for: cun-chu" style="visibility: hidden;"></a>
+</h3>
+<p>使用软 raid. 将 RAID 卡设置为 HBA (直通) 模式, 然后使用 zfs raidz 2-0, 2 块冗余盘. raw size 7.18T 除去冗余后 4.43T.</p>
+<hr />
+<h3 id="wang-luo">网络<a class="zola-anchor" href="#wang-luo" aria-label="Anchor link for: wang-luo" style="visibility: hidden;"></a>
+</h3>
+<p>四个电口 (<code>eno1</code>, <code>eno2</code>, <code>eno3</code>, <code>eno4</code>). 实际用到两个, <code>eno1</code> 连接光猫, <code>eno2</code> 连接交换机. 显然我无法把整个服务器塞进弱电箱, 所以实际的布线是挺丑陋的: 交换机塞进弱电箱, 然后两根线探出弱电箱连到机器上. 具体配置见后文.</p>
+<hr />
+<h2 id="zu-wang">组网<a class="zola-anchor" href="#zu-wang" aria-label="Anchor link for: zu-wang" style="visibility: hidden;"></a>
+</h2>
+<p>组网核心围绕公网访问展开, 这也是这套 homelab 网络架构中最精华的部分. 之前机器在 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://macesuted.moe">@Macesuted</a> 家的时候, 公网访问主要是通过公网流量机 + FRP 实现的. 可既然机器到了自己家里, 有了对整个网络结构的控制权, 我想尝试一下不额外购买公网机来实现公网访问. (不止是内网穿透, 而是能在任何接入 Internet 的网路环境下的公网访问).</p>
+<hr />
+<h3 id="internet-setup">Internet Setup<a class="zola-anchor" href="#internet-setup" aria-label="Anchor link for: internet-setup" style="visibility: hidden;"></a>
+</h3>
+<p>先接管运营商自带的孱弱路由器. 联系宽带师傅获取超管密码和宽带账号后, 把光猫改成桥接, 然后就可以把自带的路由器下线了, 或者 cosplay AP.</p>
+<p>由此光猫就变成纯粹的光猫, 只作光电信号转换. 然后路由就可以由我们自己控制了, 少了一层 NAT.</p>
+<p>路由方案采用经典的主旁路由方案: 主路由 ikuai, 负责基础的拨号上网 + 路由; 旁路由 iStoreOS (预装的功能有点多, 下次回家可能要换成 immortalWrt), 其插件系统能提供更多的高级玩法.</p>
+<p>在 PVE 中创建两个 VM 并刷入对应的系统, 然后来配置 bridge:</p>
+<table><thead><tr><th>bridge</th><th>网段</th><th>Ports</th><th>用途</th></tr></thead><tbody>
+<tr><td><code>vmbr0</code></td><td>10.10.10.0/24</td><td><code>eno2</code> (连接交换机)</td><td>主内网</td></tr>
+<tr><td><code>vmbr1</code></td><td></td><td><code>eno1</code> (连接光猫)</td><td>WAN</td></tr>
+<tr><td><code>vmbr2</code></td><td>10.10.20.0/24</td><td></td><td>DMZ</td></tr>
+</tbody></table>
+<p>说明一下 vmbr2: 计划将后续能公网直接访问的容器或虚拟机放在此网段用于安全隔离.</p>
+<p>PVE 宿主机接入 vmbr0, IP: <code>10.10.10.2</code></p>
+<p>VMs 配置:</p>
+<table><thead><tr><th>VM</th><th>接口</th><th>地址</th></tr></thead><tbody>
+<tr><td>ikuai</td><td><code>eth0</code> - <code>vmbr0</code><br><code>eth1</code> - <code>vmbr1</code><br><code>eth2</code> - <code>vmbr2</code></td><td><code>10.10.10.1</code><br><code>10.10.20.1</code></td></tr>
+<tr><td>iStoreOS</td><td><code>eth0</code> - <code>vmbr0</code><br><code>eth1</code> - <code>vmbr2</code></td><td><code>10.10.10.3</code><br><code>10.10.20.3</code></td></tr>
+</tbody></table>
+<p>在主路由的 <code>eth2</code> 接口设置 WAN, 完成 PPPoE 拨号. 然后配置好 DHCP 和 DNS, 家里就可以连上 Internet 了.</p>
+<p>旁路由配置好两个 LAN 口即可. 关闭 DHCP 否则要和主路由撞车. 高级功能先不配置.</p>
+<hr />
+<h3 id="public-access">Public Access<a class="zola-anchor" href="#public-access" aria-label="Anchor link for: public-access" style="visibility: hidden;"></a>
+</h3>
+<p>Ok 现在可以来折腾公网访问了. 原本打算利用 fullcone NAT 来直接实现 IPv4 打洞. 原理见 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.v2ex.com/t/879549">Natter: 在 NAT1 下开放公网 TCP 端口</a>, 简单来说是利用 fullcone NAT 端口重用的特性, 用长连接占据一个端口, 然后用 STUN 服务器查到这个端口和公网地址, 然后就能使用了. 我甚至还用 rust 重写了一个版本 (<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/uchout/nyat">nyat</a>), 添加了多任务模式. 但是只能在主路由上使用, 而我不是很想让主路由的 IP 直接暴露 (后续还要做 DDNS, 被锁定了很容易被攻击), 并且希望主路由不承担过多的功能, 于是放弃.</p>
+<p>最终选择的方法是拨 IPv6. 我所使用的运营商是支持动态公网 v6 的, 所以在 ikuai 主路由中给 <code>eth1</code> (WAN 口) 配置 DHCPv6 即可. 然后只给 <code>eth2</code> (DMZ) 开启自动分配模式, 也就是接入公网 v6, <code>eth0</code> (主内网) 静态分配内网 <code>fd00:10::1/64</code>, 保障安全. 同时配置防火墙阻断 <code>eth2</code> 到 <code>eth0</code> 的请求, 进一步保障安全.</p>
+<p>至此, 接入 <code>vmbr2</code>, 也就是 <code>10.10.20.0/24</code> 网段的主机都能获得独立的 IPv6 地址. 不过这个地址是动态的, 为了方便使用可以配置一个 ddns. 写个脚本就能解决, 轮询 IPv6 对应接口的地址, 发生变动了发一个域名更新请求到域名服务商即可.</p>
+<hr />
+<h2 id="shi-yong">使用<a class="zola-anchor" href="#shi-yong" aria-label="Anchor link for: shi-yong" style="visibility: hidden;"></a>
+</h2>
+<h3 id="web">web<a class="zola-anchor" href="#web" aria-label="Anchor link for: web" style="visibility: hidden;"></a>
+</h3>
+<p>web 是最常见的公网访问需求. 我打算在 DMZ 区域开一个容器专门用来跑 nginx 反代. 这样只需要做一次 ddns, 然后 web 服务就可以直接放在主内网中, 由 nginx 反代获得公网访问.</p>
+<p>这个容器取名为 ingress, 配置如下:</p>
+<table><thead><tr><th>interface</th><th>bridge</th><th>IP</th><th>Gateway</th></tr></thead><tbody>
+<tr><td><code>eth0</code></td><td><code>vmbr2</code></td><td>10.10.20.11</td><td></td></tr>
+<tr><td><code>eth1</code></td><td><code>vmbr0</code></td><td>10.10.10.5</td><td>10.10.10.1</td></tr>
+</tbody></table>
+<p>这个容器同时接入了 DMZ 和主内网, 是唯一可能通过公网入侵主内网的突破口. 但是为了 web 服务能够在主内网中高速访问, 只能做出妥协. 只能祈祷 nginx 没有安全漏洞了. 并且可以给 ddns 绑定的域名套 CDN 来防止公网 IP 直接暴露, 以及配置防火墙来解决.</p>
+<p>ikuai 里我添加了一则 ACL 规则, 阻断 10.10.20.0/24 对 10.10.10.0/24 的请求, 来保障主内网的安全.</p>
+<p>ddns 域名我用的是 cloudflare, 并且通过自定义主机回退源实现 CDN 优选. 优选地址用的 visa.com. 开启 CDN 不仅可以防止 IP 直接暴露, cloudflare 大爹还提供了 v4 v6 双栈翻译功能, 也就是在没有 IPv6 的外网场景也可以访问.</p>
+<p>小插曲: 443 端口存活了大概一周就被我的运营商 ban 了. 于是我迁移到了 8443 端口, 并且用 cloudflare 的 rule 功能将 443 端口访问重写至 8443 端口, 实现域名不带端口号直接访问.</p>
+<p><img src="https://uchout.moe/posts/my-homelab/cloudflare_rule.png" alt="" /></p>
+<hr />
+<h3 id="p2p-fang-wen">P2P 访问<a class="zola-anchor" href="#p2p-fang-wen" aria-label="Anchor link for: p2p-fang-wen" style="visibility: hidden;"></a>
+</h3>
+<p>主内网的有些敏感内容不适合通过 ingress nginx 反代直接暴露到公网, 比如 PVE 的 web 管理页. 此时可以通过搭建 zerotier 虚拟局域网来实现 P2P 内网穿透. 由于现在家庭的网络结构已经非常不错了, 从运营商入户到主内网仅一层 NAT. 我在外面实测没有遇到无法建立 P2P 通道的情况.</p>
+<p>zerotier 搭建在旁路由 iStoreOS 上, 在 zerotier 的 dashboard 配置一个路由, 就能实现在外的 zt 局域网设备直接通过主内网 IP 访问设备. 我的旁路由的 zt 局域网 IP 为 172.2.2.1, 因此添加 <code>10.10.10.0/24 via 172.2.2.1</code> 和 <code>10.10.20.0/24 via 172.2.2.1</code> 即可 p2p 访问主内网和 DMZ 中的设备.</p>
+<hr />
+<h3 id="tou-ming-dai-li">透明代理<a class="zola-anchor" href="#tou-ming-dai-li" aria-label="Anchor link for: tou-ming-dai-li" style="visibility: hidden;"></a>
+</h3>
+<p>旁路由装个 openclash, 然后把需要走透明代理的设备的 gateway 从默认的主路由地址 10.10.10.1 / 10.10.20.1 改成旁路由地址 10.10.10.3 / 10.10.20.3 即可实现科学上网. 我的 dev 机就是这么操作的, KitKit 的自动化机器人也是这么接入代理的, 在里面跑 cc-connect 和 codex / claude code 非常丝滑.</p>
+<figure>
+    <img
+        src="devel.png"
+         alt="ssh + tmux, 光标延迟完全无感"
+        
+         width="500"
+    >
+    
+    <figcaption><p>ssh + tmux, 光标延迟完全无感</p>
+</figcaption>
+    
+</figure>
+<hr />
+<h3 id="yuan-cheng-fang-wen-pc">远程访问 PC<a class="zola-anchor" href="#yuan-cheng-fang-wen-pc" aria-label="Anchor link for: yuan-cheng-fang-wen-pc" style="visibility: hidden;"></a>
+</h3>
+<p>家里的台式机肯定不能随我出行. 既然现在有了主内网访问能力, 就可以用 moonlight + sunshine 实现远程桌面访问啦. Sunshine 推荐选择 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/AlkaidLab/foundation-sunshine">基地版</a>, 可以实现远程桌面建立后自动关闭对面的显示器, 这样就可以<del>防止家人偷窥我打 galgame 了</del> 严肃使用 Microsoft Office 办公了. windows 可以开启 WOL, 这样还能远程开关机, 省电. 不过有个坑点, 远程桌面连接状态下直接关机, 第二次开机后 sunshine 有极大概率崩溃. 所以远程关机得靠 ssh.</p>
+<p><img src="https://uchout.moe/posts/my-homelab/remote_desktop.png" alt="" /></p>
+<hr />
+<h2 id="zong-jie">总结<a class="zola-anchor" href="#zong-jie" aria-label="Anchor link for: zong-jie" style="visibility: hidden;"></a>
+</h2>
+<p>总的来说, 服务大多跑在主内网以保障安全性. 之前在 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://macesuted.moe">mace</a> 家的时候, 因为只有一台机子, 所以想跑很多服务采用的是 docker / podman. 而现在可以直接一个服务一个 lxc 容器, 开始有点分布式的味道了! 而且有个很好用的 homelab 玩家社区 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://community-scripts.org/">community script</a>, 里面包装好了很多常见的 lxc 容器, 尝试提供像 docker 一样便捷的服务搭建方式.</p>
+<figure>
+    <img
+        src="lxc.png"
+         alt="我跑的一些服务"
+        
+         width="500"
+    >
+    
+    <figcaption><p>我跑的一些服务</p>
+</figcaption>
+    
+</figure>
+<p>直接需要公网发现的服务, 比如 syncthing, qBittorrent 就跑在 DMZ 区域. web 服务统一走 ingress 容器的 nginx 反代.</p>
+<p>拿 cc 画了个拓扑图:</p>
+<figure>
+    <img
+        src="topology.svg"
+         alt="homelab topology"
+        
+        
+    >
+    
+    <figcaption><p>homelab topology</p>
+</figcaption>
+    
+</figure>
+
+      </article>
+
+      
+      
+
+      
+      
+      <div class="giscus"></div>
+      <script src="https://giscus.app/client.js"
+        data-repo="uchouT/uchouT.github.io"
+        data-repo-id="R_kgDOOPwy_A"
+        data-category="General"
+        data-category-id="DIC_kwDOOPwy_M4C0UcA"
+        data-mapping="title"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="https://uchout.moe/giscus-light.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+      
+    </div>
+
+    
+
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © 2025 uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+
+    <span>|</span>
+    <a
+      href="https://creativecommons.org/licenses/by/4.0/"
+      rel="license noreferrer"
+      target="_blank"
+    >
+      CC BY 4.0
+    </a>
+      </div>
+  </div>
+
+  <div class="right">
+    
+    
+      
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml">RSS</a>
+    
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml">https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+
+  </main>
+</div>
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

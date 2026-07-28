@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+  
+    
+  
+  <meta name="description" content="本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。">
+
+  <title>Arch Linux + KDE 日常使用的记录</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<style>
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 16px;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#kde-xiang-guan">KDE 相关</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#jian-pan-shu-ru-qia-dun">键盘输入卡顿</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#qi-yong-xiu-mian">启用休眠</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#mei-hua">美化</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#ntfs-yi-dong-ying-pan-gua-zai-shi-bai">NTFS 移动硬盘挂载失败</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#hong-kong-ban-shou-shi-you-hua">触控板手势优化</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#ruan-jian-xiang-guan">软件相关</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#flatpak-qie-huan-wei-yong-hu-ji-an-zhuang">flatpak 切换为用户级安装</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#mpv-lian-jie-xie-yi-zhu-ce">mpv 链接协议注册</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#rime-shu-ru-fa">rime 输入法</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#dolphin-pei-zhi-you-jian-da-kai-tabby">Dolphin 配置右键打开 Tabby</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>Arch Linux + KDE 日常使用的记录</h1>
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Sep 2, 2024</span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/kde"><span>#</span>KDE</a><a class="instant" href="https://uchout.moe/tags/arch"><span>#</span>Arch</a><a class="instant" href="https://uchout.moe/tags/linux"><span>#</span>Linux</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        
+<blockquote class="callout note has-title">
+  
+  
+  <p class="title">
+    <span class="icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z" fill="currentColor"></path></svg>
+
+    </span>
+    <strong>Note</strong>
+  </p>
+  <div class="content">
+    <p>现在博主使用的是 niri.</p>
+
+  </div>
+  
+</blockquote>
+
+<p>本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。</p>
+<p>环境如下：</p>
+<ul>
+<li>Host: HP Envy x360 2-in-1 Laptop 14-fa0xxx</li>
+<li>OS: Arch Linux x86_64</li>
+<li>Kernel: Linux 6.13.1-zen3-1-zen</li>
+<li>DE: KDE Plasma 6.2.5</li>
+<li>WM: Kwin (Wayland)</li>
+<li>CPU: AMD Ryzen 7 8840HS w/ Radeon 780M Graphics (16) @ z</li>
+<li>GPU: AMD Phoenix3 [Integrated]</li>
+<li>Memory: 32G</li>
+</ul>
+<h2 id="kde-xiang-guan">KDE 相关<a class="zola-anchor" href="#kde-xiang-guan" aria-label="Anchor link for: kde-xiang-guan" style="visibility: hidden;"></a>
+</h2>
+<p>目前的版本是 Plasma 6.2.5</p>
+<h3 id="jian-pan-shu-ru-qia-dun">键盘输入卡顿<a class="zola-anchor" href="#jian-pan-shu-ru-qia-dun" aria-label="Anchor link for: jian-pan-shu-ru-qia-dun" style="visibility: hidden;"></a>
+</h3>
+<p>问题由 PSR 导致，需要加上一段内核参数。</p>
+<blockquote>
+<p>PSR（面板自刷新）是一种节能技术，主要用于节省功耗。当屏幕内容保持不变时，显卡会停止发送数据，而是让显示面板自行维护画面。但在某些情况下，PSR 可能会导致显示问题，如：</p>
+<ul>
+<li>屏幕闪烁或短暂黑屏</li>
+<li>画面冻结</li>
+<li>延迟或其他图像异常</li>
+</ul>
+</blockquote>
+<ol>
+<li>
+<p>确保使用的是 amd 开源驱动 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://wiki.archlinuxcn.org/wiki/AMDGPU">AMDGPU</a>。</p>
+</li>
+<li>
+<p>修改 GRUB 启动参数:</p>
+</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="plain"><span class="giallo-l"><span>sudoedit /etc/default/grub </span></span></code></pre>
+<p>找到 <code>GRUB_CMDLINE_LINUX_DEFAULT</code> ，在末尾加上 <code>amdgpu.dcdebugmask=0x10</code> 参数。</p>
+<ol start="3">
+<li>重新生成 GRUB 配置</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> grub-mkconfig</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">o</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /boot/grub/grub.cfg</span></span></code></pre>
+<p>下次重启时，应该就正常了。</p>
+<p>问题跟进：https://bbs.archlinux.org/viewtopic.php?id=301280</p>
+<h3 id="qi-yong-xiu-mian">启用休眠<a class="zola-anchor" href="#qi-yong-xiu-mian" aria-label="Anchor link for: qi-yong-xiu-mian" style="visibility: hidden;"></a>
+</h3>
+<p>参考： <a rel="noopener nofollow noreferrer external" target="_blank" href="https://wiki.archlinuxcn.org/zh-cn/%E7%94%B5%E6%BA%90%E7%AE%A1%E7%90%86/%E6%8C%82%E8%B5%B7%E4%B8%8E%E4%BC%91%E7%9C%A0">ArchWiki</a></p>
+<ol>
+<li>先确保已创建了交换分区，如果没有按以下命令创建：</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> fallocate</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">l</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 32G</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /swapfile</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">   #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 大小 &gt;= 内存</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> chmod</span><span style="color: light-dark(#FE640B, #FAB387);"> 600</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /swapfile</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> mkswap</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /swapfile</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> swapon</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /swapfile</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">/swapfile none swap defaults 0 0</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/fstab</span></span></code></pre>
+<ol start="2">
+<li>配置 initramfs</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudoedit</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/mkinitcpio.conf</span></span></code></pre>
+<p>找到 <code>HOOKS</code> 在里面添加 <code>resume</code> ，注意要添加在 <code>udev</code> 之后。
+3. 重新生成配置 <code>sudo mkinitcpio -P </code></p>
+<h3 id="mei-hua">美化<a class="zola-anchor" href="#mei-hua" aria-label="Anchor link for: mei-hua" style="visibility: hidden;"></a>
+</h3>
+<p>安装 <code>plasma-framework5</code>，很多美化的东西要依赖这玩意。</p>
+<ul>
+<li>splashscreen: https://www.pling.com/p/2136517</li>
+<li>SDDM login Theme: https://www.pling.com/p/1312658</li>
+<li>Application Style: kvantum + <a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.pling.com/p/1325246">layan</a></li>
+<li>Global Theme: <a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.pling.com/p/1325243">Layan</a>, 注意不要直接应用全局主题，我这里直接应用会导致黑屏，重启后才恢复，而且 dock 栏会直接消失。建议是下载了全局主题后，逐项目手动应用，dock 栏布局可能得自己手搓。</li>
+</ul>
+<p>Desktop Effects 里面勾选 "Blur".</p>
+<p>窗口圆角：安装 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/a-parhom/LightlyShaders">lightlyshaders</a>, archlinux 用户直接通过 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://aur.archlinux.org/packages/lightlyshaders-git">aur</a> 安装。</p>
+<h3 id="ntfs-yi-dong-ying-pan-gua-zai-shi-bai">NTFS 移动硬盘挂载失败<a class="zola-anchor" href="#ntfs-yi-dong-ying-pan-gua-zai-shi-bai" aria-label="Anchor link for: ntfs-yi-dong-ying-pan-gua-zai-shi-bai" style="visibility: hidden;"></a>
+</h3>
+<p>可以通过 <code>mount</code> 命令手动挂载，但是在桌面环境中无法通过鼠标点击弹出的菜单挂载，会显示错误信息：<code>wrong fs type, bad option, bad superblock on /dev/sda1,  missing codepage or helper program, or other error</code></p>
+<p><strong>解决方法 :</strong> 禁用 <code>ntfs3</code> 模块，切换为 <code>ntfs-3g</code></p>
+<ol>
+<li>将 <code>ntfs3</code> 列入黑名单</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">blacklist ntfs3</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> tee</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/modprobe.d/blacklist-ntfs3.conf</span></span></code></pre>
+<p>更新 <code>initramfs</code></p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> mkinitcpio</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">P</span></span></code></pre>
+<ol start="2">
+<li>确保安装 <code>ntfs-3g</code></li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> pacman</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">S</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ntfs-3g</span></span></code></pre>
+<ol start="3">
+<li>编辑 <code>/etc/udisk2/mount_options.conf</code>，加入以下内容：</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="ini"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">defaults</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">ntfs_defaults</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#1E66F5, #89B4FA);">uid</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>$UID,</span><span style="color: light-dark(#1E66F5, #89B4FA);">gid</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>$GID,rw,relatime</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">ntfs_allow</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#1E66F5, #89B4FA);">uid</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>$UID,</span><span style="color: light-dark(#1E66F5, #89B4FA);">gid</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>$GID,prealloc</span></span>
+<span class="giallo-l"></span></code></pre>
+<p>重启后应该就正常了。</p>
+<h3 id="hong-kong-ban-shou-shi-you-hua">触控板手势优化<a class="zola-anchor" href="#hong-kong-ban-shou-shi-you-hua" aria-label="Anchor link for: hong-kong-ban-shou-shi-you-hua" style="visibility: hidden;"></a>
+</h3>
+<p>安装 <code>libinput-gestures</code> 和 <code>ydotool</code> 。详细可以参考 <a href="/posts/kde-touchpad-gesture/">KDE 笔记本触控板手势优化 libinput-gestures + ydotool</a></p>
+<h2 id="ruan-jian-xiang-guan">软件相关<a class="zola-anchor" href="#ruan-jian-xiang-guan" aria-label="Anchor link for: ruan-jian-xiang-guan" style="visibility: hidden;"></a>
+</h2>
+<h3 id="flatpak-qie-huan-wei-yong-hu-ji-an-zhuang">flatpak 切换为用户级安装<a class="zola-anchor" href="#flatpak-qie-huan-wei-yong-hu-ji-an-zhuang" aria-label="Anchor link for: flatpak-qie-huan-wei-yong-hu-ji-an-zhuang" style="visibility: hidden;"></a>
+</h3>
+<p>flatpak 中默认的 remote 源是系统级安装的，占用根分区。切换为用户级安装（只为当前用户安装）方法如下：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> flatpak</span><span style="color: light-dark(#40A02B, #A6E3A1);"> remote-delete</span><span style="color: light-dark(#40A02B, #A6E3A1);"> flathub</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 删除原有的 remote</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">flatpak</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-user</span><span style="color: light-dark(#40A02B, #A6E3A1);"> remote-add</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-if-not-exists</span><span style="color: light-dark(#40A02B, #A6E3A1);"> flathub</span><span style="color: light-dark(#40A02B, #A6E3A1);"> https://dl.flathub.org/repo/flathub.flatpakrepo</span></span></code></pre><h3 id="mpv-lian-jie-xie-yi-zhu-ce">mpv 链接协议注册<a class="zola-anchor" href="#mpv-lian-jie-xie-yi-zhu-ce" aria-label="Anchor link for: mpv-lian-jie-xie-yi-zhu-ce" style="visibility: hidden;"></a>
+</h3>
+<p>用于打开 <code>mpv://</code> 的 mpv 跳转链接。</p>
+<p>直接用别人造好的协议注册器 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/akiirui/mpv-handler">Github</a>
+<code>paru -S mpv-hand</code></p>
+<h3 id="rime-shu-ru-fa">rime 输入法<a class="zola-anchor" href="#rime-shu-ru-fa" aria-label="Anchor link for: rime-shu-ru-fa" style="visibility: hidden;"></a>
+</h3>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> pacman</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">S</span><span style="color: light-dark(#40A02B, #A6E3A1);"> fcitx5-im</span><span style="color: light-dark(#40A02B, #A6E3A1);"> fcitx5-rime</span></span></code></pre>
+<p>设置里 <code>Keyboard</code> -&gt; <code>Virtual Keyboard</code> 启用，再去 <code>input method</code> 里添加 Rime，<code>Configure addons...</code> 里把 UI 切换为 KDE plasma。</p>
+<p>使用<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/gaboolic/rime-frost">白霜拼音</a>词库：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">rm</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">rf</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ~/.local/share/fcitx5/rime</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">git</span><span style="color: light-dark(#40A02B, #A6E3A1);"> clone</span><span style="color: light-dark(#40A02B, #A6E3A1);"> https://github.com/gaboolic/rime-frost.git</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ~/.local/share/fcitx5/rime</span></span></code></pre>
+<p>重新部署即可。</p>
+<h3 id="dolphin-pei-zhi-you-jian-da-kai-tabby">Dolphin 配置右键打开 Tabby<a class="zola-anchor" href="#dolphin-pei-zhi-you-jian-da-kai-tabby" aria-label="Anchor link for: dolphin-pei-zhi-you-jian-da-kai-tabby" style="visibility: hidden;"></a>
+</h3>
+<ol>
+<li>确保 Tabby 是从 GitHub 仓库下载 .pacman 文件进行安装的。</li>
+</ol>
+<blockquote>
+<p>从 aur 获取的 Tabby 有谜之问题，没去研究过。</p>
+</blockquote>
+<ol start="2">
+<li>创建 Dolphin Service Menus</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudoedit</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /usr/share/kio/servicemenus/TabbyHere.desktop</span></span></code></pre>
+<p>目录位置也可能在 <code>~/.local/share/kio/servicemenus</code>，视情况而定。然后粘贴以下内容：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="ini"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Desktop Entry</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Type</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>Service</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">ServiceTypes</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>KonqPopupMenu/Plugin</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">MimeType</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>inode/directory</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Actions</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>open_tabby</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">X-KDE-Priority</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>TopLevel</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Icon</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>utilities-terminal</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Desktop Action open_tabby</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Name</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>Open Tabby Here</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Exec</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>tabby open %f</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Icon</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>utilities-terminal</span></span></code></pre>
+<p>保存后重启 Dolphin，右键就能看到 <code>Open Tabby Here</code> 的选项了，如果没看到，就去 "Dolphin Configuration" -&gt; "Context Menu" 里启用一下。</p>
+
+      </article>
+
+      
+      
+
+      
+      
+      <div class="giscus"></div>
+      <script src="https://giscus.app/client.js"
+        data-repo="uchouT/uchouT.github.io"
+        data-repo-id="R_kgDOOPwy_A"
+        data-category="General"
+        data-category-id="DIC_kwDOOPwy_M4C0UcA"
+        data-mapping="title"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="https://uchout.moe/giscus-light.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+      
+    </div>
+
+    
+
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © 2025 uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+
+    <span>|</span>
+    <a
+      href="https://creativecommons.org/licenses/by/4.0/"
+      rel="license noreferrer"
+      target="_blank"
+    >
+      CC BY 4.0
+    </a>
+      </div>
+  </div>
+
+  <div class="right">
+    
+    
+      
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml">RSS</a>
+    
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml">https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+
+  </main>
+</div>
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

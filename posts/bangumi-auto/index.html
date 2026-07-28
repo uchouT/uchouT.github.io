@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+  
+    
+  
+  <meta name="description" content="&lt;p&gt;2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https:&#x2F;&#x2F;github.com&#x2F;wushuo894&#x2F;ani-rss&quot;&gt;Ani-rss&lt;&#x2F;a&gt;，本文也作了相应修改。&lt;&#x2F;p&gt;
+&lt;p&gt;前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：&lt;&#x2F;p&gt;
+&lt;ul&gt;
+&lt;li&gt;自动下载字幕组发布的新番资源，做种后释放空间。&lt;&#x2F;li&gt;
+&lt;li&gt;番剧自动重命名为容易被 emby 等媒体库刮削的格式，并上传至网盘。&lt;&#x2F;li&gt;
+&lt;li&gt;emby 媒体库弹幕支持。&lt;&#x2F;li&gt;
+&lt;li&gt;emby 媒体库播放番剧，流量不走 VPS，直接通过 302 重定向到网盘。（需要网盘支持）&lt;&#x2F;li&gt;
+&lt;&#x2F;ul&gt;
+&lt;p&gt;其中最后一个特性也很适合网盘有大量媒体资源，想做成媒体库的朋友们。&lt;&#x2F;p&gt;">
+
+  <title>Ani-rss + qb + alist + symlink + emby 实现的新番媒体库</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<style>
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 16px;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#qian-ti">前提</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#wo-de-huan-jing">我的环境</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#xiang-xi-bu-shu">详细部署</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#alist">Alist</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#rclone">Rclone</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#qbittorrent">qBittorrent</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#autobangumi">AutoBangumi</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#ani-rss">Ani-rss</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#autosymlink">AutoSymlink</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#emby">emby</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#emby2alist">emby2Alist</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#can-kao">参考</a>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>Ani-rss + qb + alist + symlink + emby 实现的新番媒体库</h1>
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Jan 11, 2025</span>
+            <span>Updated on <span id="updated">Feb 24, 2025</span></span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/acg"><span>#</span>ACG</a><a class="instant" href="https://uchout.moe/tags/torrent"><span>#</span>Torrent</a><a class="instant" href="https://uchout.moe/tags/emby"><span>#</span>Emby</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <p>2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/wushuo894/ani-rss">Ani-rss</a>，本文也作了相应修改。</p>
+<p>前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：</p>
+<ul>
+<li>自动下载字幕组发布的新番资源，做种后释放空间。</li>
+<li>番剧自动重命名为容易被 emby 等媒体库刮削的格式，并上传至网盘。</li>
+<li>emby 媒体库弹幕支持。</li>
+<li>emby 媒体库播放番剧，流量不走 VPS，直接通过 302 重定向到网盘。（需要网盘支持）</li>
+</ul>
+<p>其中最后一个特性也很适合网盘有大量媒体资源，想做成媒体库的朋友们。</p>
+<span id="continue-reading"></span>
+<p><strong>效果展示：</strong>
+<img src="https://uchout.moe/posts/bangumi-auto/%E6%95%88%E6%9E%9C.png" alt="" /></p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/%E6%95%88%E6%9E%9C2.png" alt="" /></p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/%E6%95%88%E6%9E%9C3.png" alt="" /></p>
+<h2 id="qian-ti">前提<a class="zola-anchor" href="#qian-ti" aria-label="Anchor link for: qian-ti" style="visibility: hidden;"></a>
+</h2>
+<ul>
+<li>一台小鸡，配置不用很高，带宽和硬盘均没有特别高的要求，因为资源都在云上。（如果没有公网访问需求直接拿 PC 也行）</li>
+<li>一个支持 302 重定向的网盘（OD，阿里云盘等）</li>
+<li>Nginx 和 njs module</li>
+</ul>
+<h3 id="wo-de-huan-jing">我的环境<a class="zola-anchor" href="#wo-de-huan-jing" aria-label="Anchor link for: wo-de-huan-jing" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>Ubuntu 22.04.5 LTS</li>
+<li>2 vCPU, 1GB RAM 40GB Disk</li>
+<li>OneDrive 世纪互联</li>
+</ul>
+<h2 id="xiang-xi-bu-shu">详细部署<a class="zola-anchor" href="#xiang-xi-bu-shu" aria-label="Anchor link for: xiang-xi-bu-shu" style="visibility: hidden;"></a>
+</h2>
+<h3 id="alist">Alist<a class="zola-anchor" href="#alist" aria-label="Anchor link for: alist" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>添加网盘，提供 302 重定向。</li>
+</ul>
+<p>安装配置非常简单，按照 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://alist.nn.ci/">官方文档</a> 进行部署即可。</p>
+<p><strong>注意：</strong></p>
+<ul>
+<li>存储建立时，「WEBDAV 策略」一定要选「302 重定向」。</li>
+<li>需要开启 WEBDAV 功能。</li>
+</ul>
+<hr />
+<h3 id="rclone">Rclone<a class="zola-anchor" href="#rclone" aria-label="Anchor link for: rclone" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>将 Alist 挂载到本地。</li>
+<li>将 qBittorrent 下载的种子上传到网盘。</li>
+</ul>
+<p>此处说明简略，更详细的配置流程请自行上网搜索。</p>
+<h4 id="an-zhuang">安装<a class="zola-anchor" href="#an-zhuang" aria-label="Anchor link for: an-zhuang" style="visibility: hidden;"></a>
+</h4>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://rclone.org">官方</a> 一键脚本:</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">v</span><span style="color: light-dark(#7C7F93, #9399B2);"> ;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> https://rclone.org/install.sh</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> sudo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> bash</span></span></code></pre><h4 id="pei-zhi">配置<a class="zola-anchor" href="#pei-zhi" aria-label="Anchor link for: pei-zhi" style="visibility: hidden;"></a>
+</h4>
+<p><code>rclone config</code> 添加 remote 配置，将 Alist 添加为 WEBDAV。</p>
+<ul>
+<li>WEBDAV 参数参照 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://alist.nn.ci/guide/webdav.html">Alist 文档</a></li>
+</ul>
+<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody>
+<tr><td>Url</td><td>https://domain:port/dav/</td></tr>
+<tr><td>Host</td><td>domain</td></tr>
+<tr><td>Path</td><td>dav</td></tr>
+<tr><td>Scheme</td><td>http/https</td></tr>
+<tr><td>Port</td><td>Same as web port</td></tr>
+<tr><td>Username</td><td>Same as web username</td></tr>
+<tr><td>Password</td><td>Same as web password</td></tr>
+</tbody></table>
+<h4 id="gua-zai-alist-dao-ben-di">挂载 Alist 到本地<a class="zola-anchor" href="#gua-zai-alist-dao-ben-di" aria-label="Anchor link for: gua-zai-alist-dao-ben-di" style="visibility: hidden;"></a>
+</h4>
+<p>创建后台脚本：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">nano</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/systemd/system/rclone-mount.service</span></span></code></pre>
+<p>粘贴以下文本，并适当修改：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="ini"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Unit</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Description</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>Mount Rclone</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">After</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>network-online.target</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Wants</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>network-online.target</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Service</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">ExecStart</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>/usr/bin/rclone mount alist: /mnt/alist  \</span></span>
+<span class="giallo-l"><span>--allow-other --</span><span style="color: light-dark(#1E66F5, #89B4FA);">vfs-cache-mode</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>full  \</span></span>
+<span class="giallo-l"><span>--allow-non-empty  --</span><span style="color: light-dark(#1E66F5, #89B4FA);">vfs-read-chunk-size</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>4M --</span><span style="color: light-dark(#1E66F5, #89B4FA);">buffer-size</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>32M</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">ExecStop</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>/bin/fusermount -u /mnt/alist</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Restart</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>on-failure</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">User</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>root</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Install</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">WantedBy</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>multi-user.target</span></span></code></pre>
+<ul>
+<li>rclone mount 使用：<code>rclone mount remote:path/to/files /path/to/local/mount</code></li>
+</ul>
+<p>服务创建完后，启动挂载：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">systemctl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> enable</span><span style="color: light-dark(#40A02B, #A6E3A1);"> rclone-mount.service</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">systemctl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> start</span><span style="color: light-dark(#40A02B, #A6E3A1);"> rclone-mount.service</span></span></code></pre>
+<p>如果配置正确，此时 <code>ls</code> 查看你设置的挂载路径，应该可以看到 alist 中的文件。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">ls</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /mnt/alist</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> Anime</span><span style="color: light-dark(#40A02B, #A6E3A1);">    Bangumi</span><span style="color: light-dark(#40A02B, #A6E3A1);">  ...</span></span></code></pre>
+<hr />
+<h3 id="qbittorrent">qBittorrent<a class="zola-anchor" href="#qbittorrent" aria-label="Anchor link for: qbittorrent" style="visibility: hidden;"></a>
+</h3>
+<p>建议设置合适的保种时长，避免吸血。</p>
+<h4 id="an-zhuang-1">安装<a class="zola-anchor" href="#an-zhuang-1" aria-label="Anchor link for: an-zhuang-1" style="visibility: hidden;"></a>
+</h4>
+<p>推荐使用增强版：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/c0re100/qBittorrent-Enhanced-Edition">GitHub</a></p>
+<p><strong>强烈建议</strong>在「Bittorrent」设置页面将做种时长设置在 1 天以上。</p>
+<h4 id="pei-zhi-hou-tai-yun-xing">配置后台运行<a class="zola-anchor" href="#pei-zhi-hou-tai-yun-xing" aria-label="Anchor link for: pei-zhi-hou-tai-yun-xing" style="visibility: hidden;"></a>
+</h4>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">nano</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/systemd/system/qbittorrent.service</span></span></code></pre>
+<p>粘贴以下配置：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="ini"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Unit</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Description</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>qBittorrent Enhanced Edition Service</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">After</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>network.target</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Service</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">Type</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>simple</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">User</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>root</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">LimitNOFILE</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>32768</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">ExecStart</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>/usr/bin/qbittorrent-nox</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">TimeoutSec</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>120</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#DF8E1D, #F9E2AF);">Install</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">WantedBy</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>multi-user.target</span></span></code></pre>
+<p>启动 qBittorrent</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">systemctl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> enable</span><span style="color: light-dark(#40A02B, #A6E3A1);"> qbittorrent</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">systemctl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> start</span><span style="color: light-dark(#40A02B, #A6E3A1);"> qbittorrent</span></span></code></pre><h4 id="she-zhi-rclone-shang-chuan-jiao-ben">设置 Rclone 上传脚本<a class="zola-anchor" href="#she-zhi-rclone-shang-chuan-jiao-ben" aria-label="Anchor link for: she-zhi-rclone-shang-chuan-jiao-ben" style="visibility: hidden;"></a>
+</h4>
+<p><strong>如果是用 Ani-rss，跳过这一步，用 Ani-rss 自带的 alist 上传，效果更好一些。</strong>
+脚本原地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://hostloc.com/thread-612238-1-1.html">【更新分享率控制】qBittorrent + Rclone 自动上传脚本</a></p>
+<p>我做了少量修改，可以额外实现：</p>
+<ul>
+<li><code>Bangumi</code> 分类的种子等待 <a href="https://uchout.moe/posts/bangumi-auto/#AutoBangumi">AutoBangumi</a> 重命名后上传。</li>
+<li>上传到路径与种子保持路径一致。</li>
+<li>单文件种子创建文件夹上传。</li>
+</ul>
+<p>访问网页进行配置，默认端口为 <code>8080</code></p>
+<p>进入设置，在「连接」窗口，勾选「Torrent 完成时运行外部程序」，然后输入：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="plain"><span class="giallo-l"><span>bash /root/qb_auto.sh  &quot;%N&quot; &quot;%F&quot; &quot;%R&quot; &quot;%D&quot; &quot;%C&quot; &quot;%Z&quot; &quot;%I&quot; &quot;%L&quot;</span></span></code></pre>
+<p><img src="https://uchout.moe/posts/bangumi-auto/4.png" alt="" /></p>
+<p>创建脚本：</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">nano</span><span style="color: light-dark(#40A02B, #A6E3A1);"> qb_auto.sh</span></span></code></pre>
+<p>粘贴以下内容：
+<details >
+  <summary><span>qb_auto.sh</span></summary>
+  <pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#EA76CB, #F5C2E7);font-style: italic;">#!</span><span style="color: light-dark(#EA76CB, #F5C2E7);font-style: italic;">/bin/bash</span></span>
+<span class="giallo-l"><span>torrent_name</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">1</span></span>
+<span class="giallo-l"><span>content_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">2</span></span>
+<span class="giallo-l"><span>root_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">3</span></span>
+<span class="giallo-l"><span>save_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">4</span></span>
+<span class="giallo-l"><span>files_num</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">5</span></span>
+<span class="giallo-l"><span>torrent_size</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">6</span></span>
+<span class="giallo-l"><span>torrent_hash</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">7</span></span>
+<span class="giallo-l"><span>torrent_type</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">8</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">#</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> if [ ${torrent_type} == &quot;ani-rss&quot; ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">#</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">#</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 	exit 0</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">#</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> fi</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>qb_version</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">4.5.4</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>qb_username</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">admin</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>qb_password</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">password</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>qb_web_url</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">http://localhost:8080</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>log_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>HOME</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qblog</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>rclone_dest</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">od</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>rclone_parallel</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">5</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>uploaded_flag</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">rcloned</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>alist_host</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">http://localhost:5244</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>alist_token</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>emby_host</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">http://localhost:8091</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>emby_api_key</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>emby_ids</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">3</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span>tg_bot_token</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>tg_chat_id</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#179299, #94E2D5);"> !</span><span style="color: light-dark(#179299, #94E2D5);"> -d</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">	mkdir</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">p</span><span> $</span><span>{</span><span>log_dir</span><span>}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">fi</span></span>
+<span class="giallo-l"><span>version</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span> $</span><span>qb_version</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> grep</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">P</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">o</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">([0-9]\.){2}[0-9]</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> sed</span><span style="color: light-dark(#40A02B, #A6E3A1);"> s/</span><span style="color: light-dark(#EA76CB, #F5C2E7);">\\</span><span style="color: light-dark(#40A02B, #A6E3A1);">.//g</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">function</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> qb_login</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>version</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> -gt</span><span style="color: light-dark(#FE640B, #FAB387);"> 404</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span>		qb_v</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">1</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>		cookie</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">i</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-header</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Referer: </span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-data</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">username=</span><span>$</span><span>{</span><span>qb_username</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&amp;password=</span><span>$</span><span>{</span><span>qb_password</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/api/v2/auth/login</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> grep</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">P</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">o</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">SID=\S{32}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#179299, #94E2D5);"> -n</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">			echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] 登录成功！cookie:</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb_login.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		else</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">			echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] 登录失败！</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb_login.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	elif</span><span style="color: light-dark(#7C7F93, #9399B2);"> [[</span><span> $</span><span>{</span><span>version</span><span>}</span><span style="color: light-dark(#179299, #94E2D5);"> -le</span><span style="color: light-dark(#FE640B, #FAB387);"> 404</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;&amp;</span><span> $</span><span>{</span><span>version</span><span>}</span><span style="color: light-dark(#179299, #94E2D5);"> -ge</span><span style="color: light-dark(#FE640B, #FAB387);"> 320</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span>		qb_v</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">2</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>		cookie</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">i</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-header</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Referer: </span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-data</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">username=</span><span>$</span><span>{</span><span>qb_username</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&amp;password=</span><span>$</span><span>{</span><span>qb_password</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/login</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> grep</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">P</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">o</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">SID=\S{32}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#179299, #94E2D5);"> -n</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">			echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] 登录成功！cookie:</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb_login.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		else</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">			echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] 登录失败</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb_login.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	elif</span><span style="color: light-dark(#7C7F93, #9399B2);"> [[</span><span> $</span><span>{</span><span>version</span><span>}</span><span style="color: light-dark(#179299, #94E2D5);"> -ge</span><span style="color: light-dark(#FE640B, #FAB387);"> 310</span><span style="color: light-dark(#179299, #94E2D5);"> &amp;&amp;</span><span> $</span><span>{</span><span>version</span><span>}</span><span style="color: light-dark(#179299, #94E2D5);"> -lt</span><span style="color: light-dark(#FE640B, #FAB387);"> 320</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span>		qb_v</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">3</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">		echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">陈年老版本，请及时升级</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">		exit</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	else</span></span>
+<span class="giallo-l"><span>		qb_v</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">0</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">		exit</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">function</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> tg_notice</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">    curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">X</span><span style="color: light-dark(#40A02B, #A6E3A1);"> POST</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">https://api.telegram.org/bot</span><span>$</span><span>{</span><span>tg_bot_token</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/sendMessage</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">    -</span><span style="color: light-dark(#40A02B, #A6E3A1);">d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> chat_id=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>{</span><span>tg_chat_id</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">    -</span><span style="color: light-dark(#40A02B, #A6E3A1);">d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> text=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Emby 媒体库已刷新</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">    -</span><span style="color: light-dark(#40A02B, #A6E3A1);">d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> parse_mode=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Markdown</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">function</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> emby_refresh</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  local</span><span> s</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Recursive=true&amp;ImageRefreshMode=Default&amp;MetadataRefreshMode=Default&amp;ReplaceAllImages=false&amp;ReplaceAllMetadata=false</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  for</span><span> id</span><span style="color: light-dark(#8839EF, #CBA6F7);"> in</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>emby_ids</span><span style="color: light-dark(#7C7F93, #9399B2);">[</span><span style="color: light-dark(#179299, #94E2D5);">@</span><span style="color: light-dark(#7C7F93, #9399B2);">]</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#8839EF, #CBA6F7);"> do</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	 local</span><span> code</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">o</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /dev/null</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">w</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">%{http_code}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">	 -</span><span style="color: light-dark(#40A02B, #A6E3A1);">X</span><span style="color: light-dark(#40A02B, #A6E3A1);"> POST</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>emby_host</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/emby/Items/</span><span>$</span><span>{</span><span>id</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/Refresh?</span><span>$</span><span>{</span><span>s</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&amp;api_key=</span><span>$</span><span>{</span><span>emby_api_key</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	 if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>code</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> -eq</span><span style="color: light-dark(#FE640B, #FAB387);"> 204</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span><span style="color: light-dark(#8839EF, #CBA6F7);"> then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">		 echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] Emby: ID </span><span>$</span><span>{</span><span>id</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 刷新成功！</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/ani.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		 tg_notice</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	 else</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">		 echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] Emby: ID </span><span>$</span><span>{</span><span>id</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 刷新失败！</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/ani.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	 fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  done</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">function</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> alist_refresh</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  local</span><span> path</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">$</span><span style="color: light-dark(#E64553, #EBA0AC);font-style: italic;">1</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  local</span><span> url</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>{</span><span>alist_host</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/api/fs/list</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  local</span><span> json</span></span>
+<span class="giallo-l"><span>  json</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">jq</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">n</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-argjson</span><span style="color: light-dark(#40A02B, #A6E3A1);"> refresh</span><span style="color: light-dark(#FE640B, #FAB387);"> true</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-arg</span><span style="color: light-dark(#40A02B, #A6E3A1);"> path</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>path</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">{refresh: $refresh, path: $path}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  local</span><span> res</span></span>
+<span class="giallo-l"><span>  res</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">s</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">X</span><span style="color: light-dark(#40A02B, #A6E3A1);"> POST</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>url</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">    -</span><span style="color: light-dark(#40A02B, #A6E3A1);">H</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Authorization: </span><span>$</span><span>{</span><span>alist_token</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">    -</span><span style="color: light-dark(#40A02B, #A6E3A1);">H</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Content-Type: application/json</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">	-</span><span style="color: light-dark(#40A02B, #A6E3A1);">d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>json</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  local</span><span> code</span></span>
+<span class="giallo-l"><span>  code</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>res</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> |</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> jq</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">r</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">.code</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>code</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> -eq</span><span style="color: light-dark(#FE640B, #FAB387);"> 200</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">    	echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] Alist: </span><span>$</span><span>path</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 刷新成功！</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/ani.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  else</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">	echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] Alist: </span><span>$</span><span>path</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 刷新失败！</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/ani.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">  fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">function</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> rclone_copy</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span>	local_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>type</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">file</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>torrent_type</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ani-rss</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		then</span></span>
+<span class="giallo-l"><span>			target_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>$</span><span>{</span><span>save_dir</span><span>}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		else</span></span>
+<span class="giallo-l"><span>			target_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span>$</span><span>{</span><span>save_dir</span><span style="color: light-dark(#179299, #94E2D5);">#</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>HOME</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">		fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	elif</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>type</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">dir</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span>		local_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>{</span><span>local_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span>		target_dir</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>{</span><span>content_dir</span><span style="color: light-dark(#179299, #94E2D5);">#</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>$</span><span>HOME</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">	rclone</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">v</span><span style="color: light-dark(#40A02B, #A6E3A1);"> copy</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-transfers</span><span> $</span><span>{</span><span>rclone_parallel</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-log-file</span><span style="color: light-dark(#40A02B, #A6E3A1);">  &quot;</span><span>$</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qbauto_copy.log</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">	&quot;</span><span>$</span><span>{</span><span>local_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>rclone_dest</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">:</span><span>$</span><span>{</span><span>target_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#EA76CB, #F5C2E7);"> \</span></span>
+<span class="giallo-l"><span style="color: light-dark(#40A02B, #A6E3A1);">	-</span><span style="color: light-dark(#40A02B, #A6E3A1);">-local-encoding</span><span style="color: light-dark(#40A02B, #A6E3A1);"> None</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-onedrive-encoding</span><span style="color: light-dark(#40A02B, #A6E3A1);"> None</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>torrent_type</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">ani-rss</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		alist_refresh</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">/Media/Bangumi</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		alist_refresh</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>target_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		sleep</span><span style="color: light-dark(#FE640B, #FAB387);"> 150</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		emby_refresh</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">function</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> qb_uploaded</span><span style="color: light-dark(#7C7F93, #9399B2);">(</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#7C7F93, #9399B2);">{</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span> $</span><span>{</span><span>qb_v</span><span>}</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">1</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">X</span><span style="color: light-dark(#40A02B, #A6E3A1);"> POST</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">hashes=</span><span>$</span><span>{</span><span>torrent_hash</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&amp;tags=</span><span>$</span><span>{</span><span>uploaded_flag</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/api/v2/torrents/addTags</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-cookie</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	elif</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span> $</span><span>{</span><span>qb_v</span><span>}</span><span style="color: light-dark(#179299, #94E2D5);"> ==</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">2</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	then</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">		curl</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">X</span><span style="color: light-dark(#40A02B, #A6E3A1);"> POST</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">hashes=</span><span>$</span><span>{</span><span>torrent_hash</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&amp;category=</span><span>$</span><span>{</span><span>uploaded_flag</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/command/setCategory</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">-cookie</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	else</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">		echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">qb_v=</span><span>$</span><span>{</span><span>qb_v</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">	fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">}</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">if</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#179299, #94E2D5);"> -f</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">then</span></span>
+<span class="giallo-l"><span>   type</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">file</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">elif</span><span style="color: light-dark(#7C7F93, #9399B2);"> [</span><span style="color: light-dark(#179299, #94E2D5);"> -d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);"> ]</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">then</span><span> </span></span>
+<span class="giallo-l"><span>   type</span><span style="color: light-dark(#179299, #94E2D5);">=</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">dir</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">else</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">   echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] 未知类型，取消上传</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">fi</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">[</span><span style="color: light-dark(#7C7F93, #9399B2);">$(</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">date</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">+%Y-%m-%d %H:%M:%S</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span><span style="color: light-dark(#7C7F93, #9399B2);">)</span><span style="color: light-dark(#40A02B, #A6E3A1);">] 类型：</span><span>$</span><span>{</span><span>type</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">rclone_copy</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">qb_login</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">qb_uploaded</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">种子名称：</span><span>$</span><span>{</span><span>torrent_name</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">内容路径：</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">根目录：</span><span>$</span><span>{</span><span>root_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">保存路径：</span><span>$</span><span>{</span><span>save_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">文件数：</span><span>$</span><span>{</span><span>files_num</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">文件大小：</span><span>$</span><span>{</span><span>torrent_size</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">Bytes</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">HASH:</span><span>$</span><span>{</span><span>torrent_hash</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">Cookie:</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span>
+<span class="giallo-l"><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;">echo</span><span style="color: light-dark(#40A02B, #A6E3A1);"> -</span><span style="color: light-dark(#40A02B, #A6E3A1);">e</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">-------------------------------------------------------------\n</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#179299, #94E2D5);"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span style="color: light-dark(#40A02B, #A6E3A1);">/qb.log</span></span></code></pre>
+</details>
+</p>
+<p>说明：</p>
+<ul>
+<li>默认情况下，保存路径为 <code>/root/path/to/torrent</code> 的种子，上传到网盘的路径为 <code>/path/to/torrent</code>，也就是会把 <code>/root</code> 部分删除。可以按需修改 <code>rclone_copy</code> 函数。</li>
+</ul>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">chmod</span><span style="color: light-dark(#40A02B, #A6E3A1);"> +x</span><span style="color: light-dark(#40A02B, #A6E3A1);"> qb_auto.sh</span></span></code></pre>
+<hr />
+<h3 id="autobangumi">AutoBangumi<a class="zola-anchor" href="#autobangumi" aria-label="Anchor link for: autobangumi" style="visibility: hidden;"></a>
+</h3>
+<p>建议使用 <a href="https://uchout.moe/posts/bangumi-auto/#Ani-rss">Ani-rss</a></p>
+<ul>
+<li>Rss 获取番剧资源，推送到 <a href="https://uchout.moe/posts/bangumi-auto/#qBittorrent">qBittorrent</a> 进行下载</li>
+<li>自动化番剧重命名，便于 emby 刮削。</li>
+</ul>
+<p>官方地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.autobangumi.org">https://www.autobangumi.org</a></p>
+<p>安装和初始配置官方教程很详细，这里不赘述。</p>
+<p><strong>注意：</strong></p>
+<ul>
+<li>在「番剧管理设置」里，将「添加组标签」勾选。</li>
+<li>「重命名间隔」设置为 5</li>
+</ul>
+<hr />
+<h3 id="ani-rss">Ani-rss<a class="zola-anchor" href="#ani-rss" aria-label="Anchor link for: ani-rss" style="visibility: hidden;"></a>
+</h3>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://docs.wushuo.top/">官方文档</a>很详细，直接照着部署就行，建议通过 docker 部署，记得路径映射正确，不然 Alist 无法上传。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="yaml"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">s</span><span style="color: light-dark(#1E66F5, #89B4FA);">ervices</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">  a</span><span style="color: light-dark(#1E66F5, #89B4FA);">ni-rss</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    c</span><span style="color: light-dark(#1E66F5, #89B4FA);">ontainer_name</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> a</span><span style="color: light-dark(#40A02B, #A6E3A1);">ni-rss</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    v</span><span style="color: light-dark(#1E66F5, #89B4FA);">olumes</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">root/docker/ani/config:/config</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">root/Media:/root/Media</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    p</span><span style="color: light-dark(#1E66F5, #89B4FA);">orts</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 7</span><span style="color: light-dark(#40A02B, #A6E3A1);">789:7789</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    e</span><span style="color: light-dark(#1E66F5, #89B4FA);">nvironment</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> P</span><span style="color: light-dark(#40A02B, #A6E3A1);">ORT=7789</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> C</span><span style="color: light-dark(#40A02B, #A6E3A1);">ONFIG=/config</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> T</span><span style="color: light-dark(#40A02B, #A6E3A1);">Z=Asia/Shanghai</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    r</span><span style="color: light-dark(#1E66F5, #89B4FA);">estart</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> a</span><span style="color: light-dark(#40A02B, #A6E3A1);">lways</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    i</span><span style="color: light-dark(#1E66F5, #89B4FA);">mage</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> w</span><span style="color: light-dark(#40A02B, #A6E3A1);">ushuo894/ani-rss</span></span></code></pre><h3 id="autosymlink">AutoSymlink<a class="zola-anchor" href="#autosymlink" aria-label="Anchor link for: autosymlink" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>对挂载文件添加 symlink 软链接，加快扫盘速度。</li>
+<li>方便保存元数据，加快读取。</li>
+</ul>
+<p>项目地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/shenxianmq/Auto_Symlink">GitHub</a></p>
+<h4 id="an-zhuang-2">安装<a class="zola-anchor" href="#an-zhuang-2" aria-label="Anchor link for: an-zhuang-2" style="visibility: hidden;"></a>
+</h4>
+<p>这里采用 <code>docker-compose</code> 安装。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">mkdir</span><span style="color: light-dark(#40A02B, #A6E3A1);"> symlink</span><span style="color: light-dark(#7C7F93, #9399B2);"> &amp;&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;"> cd</span><span style="color: light-dark(#40A02B, #A6E3A1);"> symlink</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">mkdir</span><span style="color: light-dark(#40A02B, #A6E3A1);"> config</span></span></code></pre>
+<p>创建 <code>docker-compose.yml</code> 配置文件，粘贴以下内容，并根据情况修改。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="yaml"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">v</span><span style="color: light-dark(#1E66F5, #89B4FA);">ersion</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &#39;</span><span style="color: light-dark(#40A02B, #A6E3A1);">3</span><span style="color: light-dark(#40A02B, #A6E3A1);">&#39;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">s</span><span style="color: light-dark(#1E66F5, #89B4FA);">ervices</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">  a</span><span style="color: light-dark(#1E66F5, #89B4FA);">uto_symlink</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    i</span><span style="color: light-dark(#1E66F5, #89B4FA);">mage</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> s</span><span style="color: light-dark(#40A02B, #A6E3A1);">henxianmq/auto_symlink:latest</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    c</span><span style="color: light-dark(#1E66F5, #89B4FA);">ontainer_name</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> a</span><span style="color: light-dark(#40A02B, #A6E3A1);">uto_symlink</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    e</span><span style="color: light-dark(#1E66F5, #89B4FA);">nvironment</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> T</span><span style="color: light-dark(#40A02B, #A6E3A1);">Z=Asia/Shanghai</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    v</span><span style="color: light-dark(#1E66F5, #89B4FA);">olumes</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">mnt/alist:/mnt/alist:rslave</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 挂载目录</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">media:/media</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> emby扫描媒体目录</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> .</span><span style="color: light-dark(#40A02B, #A6E3A1);">/config:/app/config</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    p</span><span style="color: light-dark(#1E66F5, #89B4FA);">orts</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">8095:8095</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    u</span><span style="color: light-dark(#1E66F5, #89B4FA);">ser</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">0:0</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    r</span><span style="color: light-dark(#1E66F5, #89B4FA);">estart</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> u</span><span style="color: light-dark(#40A02B, #A6E3A1);">nless-stopped</span></span></code></pre><h4 id="pei-zhi-1">配置<a class="zola-anchor" href="#pei-zhi-1" aria-label="Anchor link for: pei-zhi-1" style="visibility: hidden;"></a>
+</h4>
+<p>访问对应端口进行网页配置，点左侧「添加任务」。示例配置如下：</p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/1.png" alt="" /></p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/2.png" alt="" /></p>
+<p>说明：</p>
+<ul>
+<li><strong>媒体目录</strong>即挂载的路径。<strong>本地目录</strong>即 symlink 文件及元数据存放目录。</li>
+<li>模式全部选本地。</li>
+<li>同步时间以秒为单位，推荐设定：3600。如果是固定不同的媒体资源而不是新番资源，推荐关闭自动同步。
+此时正确配置后，原本挂载路径 <code>/mnt/alist/Bangumi</code> 中的媒体资源，会通过软链接到 <code>/media/Bangumi</code></li>
+</ul>
+<hr />
+<h3 id="emby">emby<a class="zola-anchor" href="#emby" aria-label="Anchor link for: emby" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>媒体库，能获取弹弹 play 上的弹幕。</li>
+<li>支持外链播放。</li>
+</ul>
+<h4 id="an-zhuang-3">安装<a class="zola-anchor" href="#an-zhuang-3" aria-label="Anchor link for: an-zhuang-3" style="visibility: hidden;"></a>
+</h4>
+<p>emby 媒体库搭建，用 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://hub.docker.com/r/amilys/embyserver">amilys</a> 的魔改版。这里采用 docker-compose 安装。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">mkdir</span><span style="color: light-dark(#40A02B, #A6E3A1);"> emby</span><span style="color: light-dark(#7C7F93, #9399B2);"> &amp;&amp;</span><span style="color: light-dark(#D20F39, #F38BA8);font-style: italic;"> cd</span><span style="color: light-dark(#40A02B, #A6E3A1);"> emby</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">mkdir</span><span style="color: light-dark(#40A02B, #A6E3A1);"> config</span><span> </span></span></code></pre>
+<p>创建 <code>docker-compose.yml</code> 文件，将以下内容按需修改后复制。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="yaml"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">s</span><span style="color: light-dark(#1E66F5, #89B4FA);">ervices</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">  e</span><span style="color: light-dark(#1E66F5, #89B4FA);">mby-server</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    i</span><span style="color: light-dark(#1E66F5, #89B4FA);">mage</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> a</span><span style="color: light-dark(#40A02B, #A6E3A1);">milys/embyserver</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    c</span><span style="color: light-dark(#1E66F5, #89B4FA);">ontainer_name</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> e</span><span style="color: light-dark(#40A02B, #A6E3A1);">mby-local</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    n</span><span style="color: light-dark(#1E66F5, #89B4FA);">etwork_mode</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> b</span><span style="color: light-dark(#40A02B, #A6E3A1);">ridge</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> DLNA and Wake-on-Lan需要bridge</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    e</span><span style="color: light-dark(#1E66F5, #89B4FA);">nvironment</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> U</span><span style="color: light-dark(#40A02B, #A6E3A1);">ID=0</span><span> </span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> G</span><span style="color: light-dark(#40A02B, #A6E3A1);">ID=0</span><span> </span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> G</span><span style="color: light-dark(#40A02B, #A6E3A1);">IDLIST=0</span><span> </span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> T</span><span style="color: light-dark(#40A02B, #A6E3A1);">Z=Asia/Shanghai</span><span> </span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    d</span><span style="color: light-dark(#1E66F5, #89B4FA);">evices</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">dev/dri:/dev/dri</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">             #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 将主机的 /dev/dri 设备挂载到容器 开启硬解</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    p</span><span style="color: light-dark(#1E66F5, #89B4FA);">orts</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> 8</span><span style="color: light-dark(#40A02B, #A6E3A1);">096:8096</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 对外访问端口</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    r</span><span style="color: light-dark(#1E66F5, #89B4FA);">estart</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#40A02B, #A6E3A1);"> u</span><span style="color: light-dark(#40A02B, #A6E3A1);">nless-stopped</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    p</span><span style="color: light-dark(#1E66F5, #89B4FA);">rivileged</span><span style="color: light-dark(#179299, #94E2D5);">:</span><span style="color: light-dark(#FE640B, #FAB387);"> true</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);">    v</span><span style="color: light-dark(#1E66F5, #89B4FA);">olumes</span><span style="color: light-dark(#179299, #94E2D5);">:</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> .</span><span style="color: light-dark(#40A02B, #A6E3A1);">/config:/config</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">      -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">mnt/alist:/mnt/alist:shared</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 这个路径直接读取挂载文件</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);">	  -</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /</span><span style="color: light-dark(#40A02B, #A6E3A1);">media:/media:shared</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">         #</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 这个路径是 symlink 软链接路径</span></span></code></pre><h4 id="pei-zhi-2">配置<a class="zola-anchor" href="#pei-zhi-2" aria-label="Anchor link for: pei-zhi-2" style="visibility: hidden;"></a>
+</h4>
+<p><img src="https://uchout.moe/posts/bangumi-auto/3.png" alt="" /></p>
+<p>注意：</p>
+<ul>
+<li>访问网页完成基础配置后，重启 embyserver 后，能在 <code>./config/config</code> 路径下找到 <code>ext.sh</code> 脚本，按照脚本中的注释进行配置，即可开始弹幕等功能。</li>
+<li>媒体库路径填通过 <a href="https://uchout.moe/posts/bangumi-auto/#AutoSymlink">AutoSymlink</a> 获取的 symlink 路径。这里是 <code>/media</code></li>
+<li>刮削器建议只选 <code>theMovieDB</code>，皮实够用。</li>
+</ul>
+<hr />
+<h3 id="emby2alist">emby2Alist<a class="zola-anchor" href="#emby2alist" aria-label="Anchor link for: emby2alist" style="visibility: hidden;"></a>
+</h3>
+<p>项目地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/bpking1/embyExternalUrl">GitHub</a></p>
+<p>另外 emby 内的外链播放也是这个项目的，赞👍</p>
+<blockquote>
+<p>将阿里盘及别的网盘的文件转为直链,使用 nginx 及其 njs 模块将 emby 视频播放地址劫持到 alist 直链</p>
+</blockquote>
+<p>此外还有一个类似的项目：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/AmbitiousJun/go-emby2alist">GO-emby2Alist</a>，没有测试过。</p>
+<h4 id="an-zhuang-4">安装<a class="zola-anchor" href="#an-zhuang-4" aria-label="Anchor link for: an-zhuang-4" style="visibility: hidden;"></a>
+</h4>
+<p>确保本地有 Nginx，以及 njs 模块。</p>
+<p>下载项目源码到本地，解压提取，我们只需要用到 <code>/emby2Alist/nginx/conf.d</code> 这个文件夹。将这个文件夹移动到 Nginx 配置目录。</p>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="shellscript"><span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">wget</span><span style="color: light-dark(#40A02B, #A6E3A1);"> https://github.com/bpking1/embyExternalUrl/archive/refs/tags/v0.4.6.zip</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">unzip</span><span style="color: light-dark(#40A02B, #A6E3A1);"> v0.4.6.zip</span><span style="color: light-dark(#7C7F93, #9399B2);"> &amp;&amp;</span><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;"> rm</span><span style="color: light-dark(#40A02B, #A6E3A1);"> v0.4.6.zip</span></span>
+<span class="giallo-l"><span style="color: light-dark(#1E66F5, #89B4FA);font-style: italic;">mv</span><span style="color: light-dark(#40A02B, #A6E3A1);"> ./embyExternalUrl-0.4.6/emby2Alist/nginx/conf.d</span><span style="color: light-dark(#40A02B, #A6E3A1);"> /etc/nginx/</span></span></code></pre><h4 id="pei-zhi-3">配置<a class="zola-anchor" href="#pei-zhi-3" aria-label="Anchor link for: pei-zhi-3" style="visibility: hidden;"></a>
+</h4>
+<ol>
+<li>修改 <code>conf.d/constant.js</code> 文件</li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="javascript"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 这里默认 emby/jellyfin 的地址是宿主机,要注意 iptables 给容器放行端口</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> embyHost</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">http://localhost:8096</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> emby/jellyfin api key, 在 emby/jellyfin 后台设置</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> embyApiKey</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">39bbbeaxxxxxxxxx5b0</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 挂载工具 rclone/CD2 多出来的挂载目录, 例如将 od,gd 挂载到 /mnt 目录下: /mnt/onedrive /mnt/gd ,那么这里就填写 /mnt</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 通常配置一个远程挂载根路径就够了,默认非此路径开头文件将转给原始 emby 处理</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 如果没有挂载,全部使用 strm 文件,此项填[&quot;&quot;],必须要是数组</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> mediaMountPath</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> [</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>]</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<ul>
+<li>本文采用 symlink 软链接 （如果用 strm，也一样），确保 <code>mediaMountPath</code> 的值为空。</li>
+</ul>
+<ol start="2">
+<li>修改 <code>conf.d/config/constant-mount.js</code></li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="javascript"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 访问宿主机上 5244 端口的 alist 地址, 要注意 iptables 给容器放行端口</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> alistAddr</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">http://localhost:5244</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> alist token, 在 alist 后台查看 alist 令牌</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> alistToken</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">alist-xxxx</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> alist 是否启用了 sign</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> alistSignEnable</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#FE640B, #FAB387);"> false</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> alist 中设置的直链过期时间,以小时为单位,严格对照 alist 设置 =&gt; 全局 =&gt; 直链有效期</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> alistSignExpireTime</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">;</span></span></code></pre>
+<ol start="3">
+<li>修改 <code>conf.d/config/constant-pro.js</code></li>
+</ol>
+<pre class="giallo" style="color-scheme: light dark; color: light-dark(#4C4F69, #CDD6F4); background-color: light-dark(#EFF1F5, #1E1E2E);"><code data-lang="javascript"><span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 路径映射,会在 mediaMountPath 之后从上到下依次全部替换一遍,不要有重叠,注意 /mnt 会先被移除掉了</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 参数?.1: 生效规则三维数组,有时下列参数序号加一,优先级在参数2之后,需同时满足,多个组是或关系(任一匹配)</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 参数1: 0: 默认做字符串替换 replace 一次, 1: 前插, 2: 尾插, 3: replaceAll 替换全部</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 参数2: 0: 默认只处理本地路径且不为 strm, 1: 只处理 strm 内部为/开头的相对路径, 2: 只处理 strm 内部为远程链接的, 3: 全部处理</span></span>
+<span class="giallo-l"><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;">//</span><span style="color: light-dark(#7C7F93, #9399B2);font-style: italic;"> 参数3: 来源, 参数4: 目标</span></span>
+<span class="giallo-l"><span style="color: light-dark(#8839EF, #CBA6F7);">const</span><span> mediaPathMapping</span><span style="color: light-dark(#179299, #94E2D5);"> =</span><span> [</span></span>
+<span class="giallo-l"><span>     [</span><span style="color: light-dark(#FE640B, #FAB387);">0</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#FE640B, #FAB387);"> 0</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">/media</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span style="color: light-dark(#7C7F93, #9399B2);">,</span><span style="color: light-dark(#40A02B, #A6E3A1);"> &quot;</span><span style="color: light-dark(#40A02B, #A6E3A1);">&quot;</span><span>]</span></span>
+<span class="giallo-l"><span>]</span></span></code></pre>
+<p>注意：</p>
+<ul>
+<li><code>/media</code> 为 symlink 软链接存放的地址，如果采用 strm，这里填写 <code>[0, 1, "/mnt/alist", ""]</code> , 其中 <code>/mnt/alist</code> 是挂载路径相对于 alist 路径多出来的部分。如同样的 Bangumi 文件夹，在 Alist 中的路径为 <code>https://yourdomain.com/Bangumi</code> , 在挂载中的路径为 <code>/mnt/alist/Bangumi</code>。</li>
+</ul>
+<p>完成后重载 Nginx 配置，就能正常工作了。访问 8091 端口，就能访问直链劫持 Alist 的 emby 媒体库了。</p>
+<h2 id="can-kao">参考<a class="zola-anchor" href="#can-kao" aria-label="Anchor link for: can-kao" style="visibility: hidden;"></a>
+</h2>
+<p>https://linux.do/t/topic/259509</p>
+
+      </article>
+
+      
+      
+
+      
+      
+      <div class="giscus"></div>
+      <script src="https://giscus.app/client.js"
+        data-repo="uchouT/uchouT.github.io"
+        data-repo-id="R_kgDOOPwy_A"
+        data-category="General"
+        data-category-id="DIC_kwDOOPwy_M4C0UcA"
+        data-mapping="title"
+        data-strict="0"
+        data-reactions-enabled="1"
+        data-emit-metadata="0"
+        data-input-position="top"
+        data-theme="https://uchout.moe/giscus-light.css"
+        data-lang="en"
+        data-loading="lazy"
+        crossorigin="anonymous"
+        async>
+</script>
+      
+    </div>
+
+    
+
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © 2025 uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+
+    <span>|</span>
+    <a
+      href="https://creativecommons.org/licenses/by/4.0/"
+      rel="license noreferrer"
+      target="_blank"
+    >
+      CC BY 4.0
+    </a>
+      </div>
+  </div>
+
+  <div class="right">
+    
+    
+      
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml">RSS</a>
+    
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml">https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https:&#x2F;&#x2F;uchout.moe&#x2F;posts&#x2F;feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http:&#x2F;&#x2F;www.w3.org&#x2F;2000&#x2F;svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;&#x2F;path&gt;&lt;&#x2F;svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+
+  </main>
+</div>
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>
