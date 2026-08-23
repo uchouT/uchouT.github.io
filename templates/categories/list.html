@@ -1,0 +1,103 @@
+{% import "macros/prose.html" as macros %}
+{% import "macros/seo.html" as seo %}
+{% extends "_base.html" %}
+
+{% block page %}blog category-list{% endblock page%}
+{% block lang -%}
+{% set blog_section_path = config.extra.blog_section_path | trim_start_matches(pat="/") %}
+{% set section_md_path = blog_section_path ~ "/_index.md"%}
+{% set section = get_section(path=section_md_path) %}
+{%- if section.extra.lang %}{{ section.extra.lang }}{% else %}{{ lang }}{% endif -%}
+{%- endblock lang %}
+{% block title %}uchouT::categories{% endblock title %}
+{% block desc %}
+  {%- if section.extra.lang %}{% set og_lang = section.extra.lang %}{% else %}{% set og_lang = lang %}{% endif -%}
+  {{ seo::seo(
+      title="Categories",
+      desc="Posts grouped by category",
+      url=current_url | default(value=""),
+      lang=og_lang
+  ) }}
+{% endblock desc %}
+
+{% block head %}
+<style>
+  body.category-list .category {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+  body.category-list .category .name {
+    color: var(--text-color);
+    text-decoration: none;
+    border-bottom: 1.5px solid transparent;
+  }
+  body.category-list .category .name:hover {
+    border-bottom-color: var(--text-color);
+  }
+  body.category-list .category .rss {
+    color: var(--text-pale-color);
+    line-height: 0;
+  }
+  body.category-list .category .rss:hover {
+    color: var(--primary-color);
+  }
+  body.category-list .category .rss svg {
+    width: 14px;
+    height: 14px;
+  }
+  body.category-list .post-list .more {
+    display: inline-block;
+    margin-top: 0.5em;
+    padding: 0.25em 0;
+    font-size: 0.85em;
+    color: var(--text-pale-color);
+    text-decoration: none;
+    border-bottom: 1.5px solid transparent;
+  }
+  body.category-list .post-list .more:hover {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+  }
+</style>
+{% endblock head %}
+
+{% block content %}
+<div id="wrapper">
+  {{ macros::back_link(path = get_url(path=config.extra.blog_section_path)) }}
+  <div class="section-title">
+    <h1>Categories</h1>
+  </div>
+  <main class="layout-list">
+    {# how many posts to list under each category, rest is behind the "read more" link #}
+    {% set max_posts = section.extra.category_max_posts | default(value=5) %}
+    {% for category, posts in section.pages | sort(attribute="taxonomies.categories.0") | group_by(attribute="taxonomies.categories.0") %}
+    {% set category_name = category %}
+    {% if category is matching("^__[0-9]{2}__") %}
+      {% set category_name = category | split(pat="") | slice(start=7) | join(sep="") %}
+    {% endif %}
+    {% set term_url = get_taxonomy_url(kind="categories", name=category) %}
+    <h2 class="category">
+      <a class="instant name" href="{{ term_url }}">{{ category_name }}</a>
+      {% if taxonomy.feed %}
+      {% set rss_icon = load_data(path="icon/rss.svg") %}
+      <a class="rss" href="{{ term_url ~ config.feed_filenames.0 }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
+      {% endif %}
+    </h2>
+    {% set total = posts | length %}
+    <div class="post-list categorized">
+      {% for post in posts | slice(end=max_posts) %}
+      <a class="post instant {% if post.extra.featured %}featured{% endif %}" href="{{ post.permalink }}">
+        <span>{{ post.title }}</span>
+        <span class="date">{{ post.date | date(format=section.extra.date_format) }}</span>
+      </a>
+      {% endfor %}
+      {% if total > max_posts %}
+      <a class="more instant" href="{{ term_url }}">read more ({{ total - max_posts }} more) →</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </main>
+  {% include "_footer.html" %}
+</div>
+{% endblock content %}

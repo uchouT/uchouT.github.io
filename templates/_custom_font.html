@@ -1,4 +1,33 @@
-<link rel="preconnect" href="https://cdn.staticfile.net" crossorigin>
-<link rel="stylesheet" href="https://cdn.staticfile.net/lxgw-wenkai-screen-webfont/1.7.0/lxgwwenkaigbscreen.min.css" media="print" onload="this.media='all'">
+<link rel="preconnect" href="https://cdn.jsdmirror.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdmirror.com/npm/@wc1font/lxgw-wen-kai-screen/font.css">
 <style>
+  /* Crimson Text, declared here instead of via a google-fonts stylesheet so we
+     can apply size-adjust.
+
+     Crimson Text has a small x-height (0.427em) compared to LXGW WenKai's own
+     latin glyphs (0.508em), so latin text renders visibly smaller than the
+     chinese around it. 115% sits between matching x-height (119%) and matching
+     cap-height (112%). Tune it here; it does not affect the chinese font.
+
+     jsDelivr first, gstatic as a fallback if it ever fails to load. */
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfbwhT.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-ext-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfYQhTM_I.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
 </style>

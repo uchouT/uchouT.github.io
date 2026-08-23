@@ -1,0 +1,61 @@
+[[collection]]
+type = "card"
+title = "IronRDP"
+link = "https://github.com/Devolutions/IronRDP"
+content = '''
+IronRDP is a modular Rust implementation of RDP, the protocol behind Windows Remote Desktop.
+
+It is not a monolithic client: its composable crates provide PDU codecs, connection and session state machines, virtual channels, and image codecs for native, WebAssembly, and .NET clients, servers, and proxies.
+
+The continuously fuzzed, `no_std`-compatible core performs no I/O, so applications supply the transport and runtime.
+'''
+tags = ["rust", "rdp"]
+
+[[collection]]
+type = "card"
+title = "qemu-rdp"
+link = "https://gitlab.com/marcandre.lureau/qemu-display"
+content = '''
+RDP server for
+[org.qemu.Display1](https://www.qemu.org/docs/master/interop/dbus-display.html)
+interface (as exposed by `qemu -display dbus`).
+
+The project was originally designed to work with QEMU, but it can be used with
+other displays/UI that implement the D-Bus interface.
+'''
+tags = ["rust", "qemu", "rdp"]
+
+[[collection]]
+type = "card"
+title = "stello"
+link = "https://github.com/stello-agent/stello"
+content = '''
+Agent 认知拓扑引擎.
+
+面向 AI Agent 和 AI 应用开发者。它把对话切成可分裂的 Session 森林，每个 Session 既有自己的对话历史，又对外暴露可被反思的描述
+'''
+tags = ["ts", "agent", "ai"]
+
+[[collection]]
+type = "card"
+title = "nyat"
+link = "https://github.com/uchouT/nyat"
+content = '''
+NAT traversal toolkit — discover and maintain your public address via STUN. A Rust reimplementation of [natmap](https://github.com/heiher/natmap) / [natter](https://github.com/MikeWang000000/Natter).
+
+写给自己用的 NAT 打洞工具, 运行在我自己的 homelab server 上.
+'''
+tags = ["rust", "toy", "nat"]
+
+[[collection]]
+type = "card"
+title = "qb-downloader"
+link = "https://github.com/uchouT/qb-downloader"
+content = '''
+Qb-downloader allows you to complete your qBittorrent tasks part by part
+and upload them to your cloud drive. This enables you to download large torrent
+tasks even if they exceed your maximum available storage.
+
+写给自己用的 qbittorrent 分片下载器, 应该是刚学 rust 的时候写着玩的. 代码挺屎的.
+'''
+tags = ["rust", "toy", "bt"]

@@ -38,12 +38,12 @@
 
   /* typography */
   body {
-    --main-font: 'LXGW WenKai Screen', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --main-font: "Crimson Text", "LXGW WenKai Screen", ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
     --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
     --homepage-max-width: 768px;
     --main-max-width: 768px;
     --avatar-size: 60px;
-    --font-size: 16px;
+    --font-size: 1.1em;
     --line-height: 1.75;
     --img-border-radius: 0px;
     --detail-border-radius: 0px;
@@ -54,6 +54,22 @@
     --block-code-border-radius: 0px;
     --block-code-border-color: var(--primary-color);
     --detail-border-color: var(--primary-color);
+  }
+
+  /* smaller font on mobile (desktop is 1.1em, set above) */
+  @media (max-width: 768px) {
+    body {
+      --font-size: 1em;
+    }
+  }
+
+  /* footer rss button, icon instead of text */
+  body footer .right #rss-btn {
+    padding: 4px;
+    line-height: 0;
+  }
+  body footer .right #rss-btn svg {
+    scale: 0.7;
   }
 
 </style>

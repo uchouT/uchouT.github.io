@@ -1,0 +1,90 @@
+{% import "macros/prose.html" as macros %}
+{% import "macros/seo.html" as seo %}
+{% extends "_base.html" %}
+
+{% block page %}blog{% endblock page%}
+{% block lang %}{% if section.extra.lang %}{{ section.extra.lang }}{% else %}{{ section.lang }}{% endif %}{% endblock lang %}
+{% block title %}{{ section.title }}{% endblock title %}
+{% block desc %}
+  {% if section.description %}
+    {% set desc = section.description %}
+  {% else %}
+    {% set desc = config.description %}
+  {% endif %}
+  {%- if section.extra.lang %}{% set og_lang = section.extra.lang %}{% else %}{% set og_lang = section.lang %}{% endif -%}
+  {{ seo::seo(
+      title=section.title,
+      desc=desc,
+      url=section.permalink,
+      lang=og_lang
+  ) }}
+{% endblock desc %}
+
+{% block head %}
+<style>
+  body.blog .section-title .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1em;
+  }
+  body.blog .section-title .head h1 {
+    margin-right: auto;
+  }
+  body.blog .section-title .head a {
+    flex: none;
+    font-size: 0.9em;
+    color: var(--text-pale-color);
+    text-decoration: none;
+    border-bottom: 1.5px solid transparent;
+  }
+  body.blog .section-title .head a:hover {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+  }
+</style>
+{% endblock head %}
+
+{% block content %}
+<div id="wrapper">
+  {{ macros::back_link(path = get_url(path="/")) }}
+  <div class="section-title">
+    <div class="head">
+      {% if section.extra.title %}<h1>{{ section.extra.title }}</h1>{% endif %}
+      <a class="instant" href="{{ get_url(path='/categories') }}">by category →</a>
+    </div>
+    {% if section.extra.subtitle %}
+    <p>{{ section.extra.subtitle }}</p>
+    {% endif %}
+  </div>
+  <main class="layout-list">
+    {% if section.extra.categorized %}
+    {% for category,posts in section.pages | sort(attribute="taxonomies.categories.0") | group_by(attribute="taxonomies.categories.0") %}
+    {% set category_name = category %}
+    {% if category is matching("^__[0-9]{2}__") %}
+      {% set category_name = category | split(pat="") | slice(start=7) | join(sep="") %}
+    {% endif %}
+    <h2 class="category">{{ category_name }}</h2>
+    <div class="post-list categorized">
+      {% for post in posts %}
+      <a class="post instant {% if post.extra.featured %}featured{% endif %}" href="{{ post.permalink }}">
+        <span>{{ post.title }}</span>
+        <span class="date">{{ post.date | date(format=section.extra.date_format) }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="post-list">
+      {% for post in section.pages %}
+      <a class="post instant {% if post.extra.featured %}featured{% endif %}" href="{{ post.permalink }}">
+        <span>{{ post.title }}</span>
+        <span class="date">{{ post.date | date(format=section.extra.date_format) }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </main>
+  {% include "_footer.html" %}
+</div>
+{% endblock content %}

@@ -1,7 +1,7 @@
 [[collection]]
 type = "box"
 title = "Macesuted's Blog"
-rotate = false
+rotate = true
 link =  "https://macesuted.moe/"
 img = "https://avatars.githubusercontent.com/u/57275149"
 subtitle = "我缓慢吐出一串啊吧啊吧并不再想说话"
@@ -9,16 +9,23 @@ subtitle = "我缓慢吐出一串啊吧啊吧并不再想说话"
 [[collection]]
 type = "box"
 title = "Veno's Blog"
-rotate = false
+rotate = true
 link =  "https://v3n0.top/"
 img = "https://raw.githubusercontent.com/U1traVeno/U1traVeno.github.io/refs/heads/main/assets/avatar-veno.jpg"
 subtitle = "Veno 的个人博客"
 
+[[collection]]
+type = "box"
+title = "CAICAIIs' world"
+rotate = true
+link = "https://caicaiis.cc/"
+img = "https://caicaiis.cc/assets/images/photo.jpg"
+subtitle = "愚者在月影之中怀抱虚妄"
 
 [[collection]]
 type = "box"
 title = "Woman's World"
-rotate = false
+rotate = true
 link =  "https://zhoudapig13.github.io/my-blog/#home"
 img = "https://zhoudapig13.github.io/my-blog/resources/uploads/avatar.png"
 subtitle = "周大妈的知识厨房"

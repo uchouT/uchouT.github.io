@@ -19,7 +19,7 @@ generate_feeds = false  # Whether to generate a feed file in root, read docs for
 feed_filenames = [
   "feed.xml"
 ]  # "feed.xml" | "atom.xml" | "rss.xml", read docs for more info
-taxonomies = [{ name = "tags" }, { name = "categories", feed = true }]
+taxonomies = [{ name = "tags", feed = true }, { name = "categories", feed = true }]
 
 [markdown]
 render_emoji = true
@@ -51,7 +51,7 @@ blog_section_path = "/posts"
 back_link_text = "Return"  # Text of the back button
 force_theme = false  # false | "light" | "dark"
 
-footer_copyright = "© 2025 uchouT"
+footer_copyright = "© uchouT"
 footer_credits = true  # Whether to show "Built with zola and serene" in footer
 
 not_found_error_text = "404 Not Found"

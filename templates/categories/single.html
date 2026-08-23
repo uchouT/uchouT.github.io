@@ -1,0 +1,75 @@
+{% import "macros/prose.html" as macros %}
+{% import "macros/seo.html" as seo %}
+{% extends "_base.html" %}
+
+{% block page %}tag-single category-single{% endblock page %}
+{% block lang -%}
+{% set blog_section_path = config.extra.blog_section_path | trim_start_matches(pat="/") %}
+{% set section_md_path = blog_section_path ~ "/_index.md"%}
+{% set section = get_section(path=section_md_path, metadata_only=true) %}
+{% set category_name = term.name %}
+{% if term.name is matching("^__[0-9]{2}__") %}
+  {% set category_name = term.name | split(pat="") | slice(start=7) | join(sep="") %}
+{% endif %}
+{%- if section.extra.lang %}{{ section.extra.lang }}{% else %}{{ lang }}{% endif -%}
+{%- endblock lang %}
+{% block title %}uchouT::{{ category_name | lower }}{% endblock title %}
+{% block desc %}
+  {%- set blog_section_path = config.extra.blog_section_path | trim_start_matches(pat="/") -%}
+  {%- set section = get_section(path=blog_section_path ~ "/_index.md", metadata_only=true) -%}
+  {%- if section.extra.lang %}{% set og_lang = section.extra.lang %}{% else %}{% set og_lang = lang %}{% endif -%}
+  {{ seo::seo(
+      title=term.name,
+      desc=term.name,
+      url=term.permalink,
+      lang=og_lang
+  ) }}
+{% endblock desc %}
+
+{% block head %}
+{% if taxonomy.feed %}
+<link rel="alternate" type="application/rss+xml" title="{{ term.name }}" href="{{ term.permalink ~ config.feed_filenames.0 }}">
+{% endif %}
+<style>
+  body.category-single .title {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+  body.category-single .title .rss {
+    color: var(--text-pale-color);
+    line-height: 0;
+  }
+  body.category-single .title .rss:hover {
+    color: var(--primary-color);
+  }
+  body.category-single .title .rss svg {
+    width: 16px;
+    height: 16px;
+  }
+</style>
+{% endblock head %}
+
+{% block content %}
+<div id="wrapper">
+  {{ macros::back_link(path = get_url(path="/categories")) }}
+  <main class="layout-list">
+    <div class="title">
+      <span>{{ category_name }}</span>
+      {% if taxonomy.feed %}
+      {% set rss_icon = load_data(path="icon/rss.svg") %}
+      <a class="rss" href="{{ term.permalink ~ config.feed_filenames.0 }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
+      {% endif %}
+    </div>
+    <div class="post-list">
+      {% for post in term.pages %}
+      <a class="post instant {% if post.extra.featured %}featured{% endif %}" href="{{ post.permalink }}">
+        <span>{{ post.title }}</span>
+        <span class="date">{{ post.date | date(format=section.extra.date_format) }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </main>
+  {% include "_footer.html" %}
+</div>
+{% endblock content %}
