@@ -35,9 +35,8 @@ Submission）** 的方式没有利用块设备的批量处理能力。
 I/O 提交都需要执行 MMIO 写操作（Doorbell Kick）以通知设备，并产生一次硬件中断
 （Interrupt）以通知完成。
 
-{%warning(title="Warning")%}
-StarryOS 还没有实现 interrupt IO
-{%end%}
+> [!WARNING]
+> StarryOS 还没有实现 interrupt IO
 
 后果：在逐页读取模式下，频繁的 MMIO 操作会导致大量的 VM-Exit（虚拟机陷入），
 Host 与 Guest 之间的上下文切换开销甚至可能超过了数据拷贝本身的耗时。这导致 CPU

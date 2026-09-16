@@ -22,9 +22,8 @@ tags = ["rust", "programming"]
 
 函数运行时把变量保存在栈上。保存在栈上的数据高度紧凑, 可以提高空间利用率, 并且利于 CPU 缓存, 这也是现代程序可以高性能运行的基础之一。不过这高性能的代价是, 栈上的数据必须是**大小确定 (Sized)** 的。
 
-{% note(title="Note") %}
-尽管 C 语言支持 VLA 这种运行时变长数组, 但 Rust 出于安全和性能考虑, 默认要求栈变量必须是编译期确定大小
-{% end %}
+> [!NOTE]
+> 尽管 C 语言支持 VLA 这种运行时变长数组, 但 Rust 出于安全和性能考虑, 默认要求栈变量必须是编译期确定大小
 
 这很好想象, 因为在栈中数据之间是高度紧凑的, 如果其中一个数据是大小可变的, 那么当其变大时, 与其紧挨着的数据就会被覆盖; 当其变小时, 就会产生内存空洞, 造成空间上的浪费。
 
@@ -75,9 +74,8 @@ fn main() {
 ```
 而函数的参数以及返回值大小必须是确定的, 我们不能将 `Self` 作为 trait method 的参数或返回值, 必须用指针或者引用。
 
-{%warning(title="Warning")%}
-并不是任意的指针包装都被允许 (see [arbitrary_self_types](https://github.com/rust-lang/rust/issues/44874))
-{%end%}
+> [!WARNING]
+> 并不是任意的指针包装都被允许 (see [arbitrary_self_types](https://github.com/rust-lang/rust/issues/44874))
 
 ```rust
 trait SomeTrait {

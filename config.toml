@@ -1,4 +1,4 @@
-# serene v5.5.0
+# serene v6.0.0
 #
 # - docs: https://github.com/isunjn/serene/blob/latest/USAGE.md
 # - check for updates: https://github.com/isunjn/serene/releases
@@ -31,7 +31,7 @@ github_alerts = true
 bottom_footnotes = true
 
 [markdown.highlighting]
-style = "inline"
+style = "class"
 light_theme = "catppuccin-latte"
 dark_theme = "catppuccin-mocha"
 
@@ -41,18 +41,32 @@ taxonomies = "on"
 anchors = "on"
 
 [extra]
-sections = [
-  { name = "posts", path = "/posts", is_external = false },
-  { name = "tags", path = "/tags", is_external = false },
-  { name = "about", path = "/about", is_external = false },
+nav = [
+  { name = "posts", path = "/posts" },
+  { name = "tags", path = "/tags" },
+  { name = "about", path = "/about" },
 ]
-blog_section_path = "/posts"
+blog_section_path = "/posts"  # Main blog section, used by home page's recent posts and tags pages
+
+# Your info on the home page
+name = "uchouT"
+bio = "Just for fun."
+avatar = "img/self_small.jpg"
+links = [
+  { name = "GitHub", icon = "github", url = "https://github.com/uchouT" },
+  { name = "Twitter/x", icon = "twitter-x", url = "https://x.com/0x_uchouT" },
+  { name = "Telegram", icon = "telegram", url = "https://t.me/uchouT" },
+  { name = "Email", icon = "email", url = "mailto:i@uchout.moe" },
+]
 
 back_link_text = "Return"  # Text of the back button
-force_theme = false  # false | "light" | "dark"
+color_scheme = "auto"  # "auto" | "light" | "dark"
 
 footer_copyright = "© uchouT"
 footer_credits = true  # Whether to show "Built with zola and serene" in footer
+
+# Site-wide defaults, can be overridden in a section's `_index.md` and again in a post's front-matter
+date_format = "%b %-d, %Y"
 
 not_found_error_text = "404 Not Found"
 not_found_recover_text = "« return to home »"

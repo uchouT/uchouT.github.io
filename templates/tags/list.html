@@ -1,10 +1,8 @@
-{% import "macros/prose.html" as macros %}
-{% import "macros/seo.html" as seo %}
 {% extends "_base.html" %}
 
 {% block page %}tag-list{% endblock page%}
 {% block lang -%}
-{% set blog_section_path = config.extra.blog_section_path | trim_start_matches(pat="/") %}
+{% set blog_section_path = config.extra.blog_section_path | trim_start(pat="/") %}
 {% set section_md_path = blog_section_path ~ "/_index.md"%}
 {% set section = get_section(path=section_md_path, metadata_only=true) %}
 {%- if section.extra.lang %}{{ section.extra.lang }}{% else %}{{ lang }}{% endif -%}
@@ -16,7 +14,7 @@
 
 {% block content %}
 <div id="wrapper">
-  {{ macros::back_link(path = get_url(path="/")) }}
+  {{ <back_link path={get_url(path="/")} config /> }}
   <main>
     <h1 class="title">Tags</h1>
     <div class="tags">

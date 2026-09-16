@@ -1,5 +1,10 @@
-{% if config.extra.blog_section_path is defined %}
-{% set blog_section_path = config.extra.blog_section_path %}
+{% set show_rss = false %}
+{% if section is defined and section.generate_feeds %}
+  {% set rss_path = section.path ~ config.feed_filenames[0] %}
+  {% set show_rss = true %}
+{% elif config.generate_feeds %}
+  {% set rss_path = "/" ~ config.feed_filenames[0] %}
+  {% set show_rss = true %}
 {% endif %}
 <footer>
   <div class="left">
@@ -9,32 +14,18 @@
       <span>|</span>
       Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
       {% endif %}
-
-    <span>|</span>
-    <a
-      href="https://creativecommons.org/licenses/by/4.0/"
-      rel="license noreferrer"
-      target="_blank"
-    >
-      CC BY 4.0
-    </a>
-      </div>
+      <span>|</span>
+      <a href="https://creativecommons.org/licenses/by/4.0/" rel="license noreferrer" target="_blank">CC BY 4.0</a>
+    </div>
   </div>
 
   <div class="right">
-    {% if blog_section_path is defined and section.path is starting_with(blog_section_path) %}
-    {% if section.generate_feeds %}
-      {% set_global rss_path = blog_section_path ~ "/" ~ config.feed_filenames.0 %}
-    {% elif config.generate_feeds %}
-      {% set_global rss_path = "/" ~ config.feed_filenames.0 %}
-    {% endif %}
-    {% if section.generate_feeds or config.generate_feeds %}
+    {% if show_rss %}
     {% set rss_icon = load_data(path="icon/rss.svg") %}
     <a id="rss-btn" href="{{ get_url(path=rss_path) }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
     {% endif %}
-    {% endif %}
 
-    {% if not config.extra.force_theme %}
+    {% if color_scheme == "auto" %}
     {% set moon_icon = load_data(path="icon/moon.svg") %}
     {% set sun_icon = load_data(path="icon/sun.svg") %}
     <button id="theme-toggle" aria-label="theme switch">
@@ -45,8 +36,7 @@
   </div>
 </footer>
 
-{% if blog_section_path is defined and section.path is starting_with(blog_section_path) %}
-{% if section.generate_feeds or config.generate_feeds %}
+{% if show_rss %}
 {% set link = get_url(path=rss_path) %}
 <dialog id="rss-mask">
   <div>
@@ -58,5 +48,4 @@
     </button>
   </div>
 </dialog>
-{% endif %}
 {% endif %}

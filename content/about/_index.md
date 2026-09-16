@@ -11,11 +11,12 @@ title = "About"
 
 math = false
 mermaid = false
-copy = false
+code_copy = false
 comment = false
 reaction = false
 +++
-{{ figure(src="/img/self.jpg", alt="头像是可爱的天子~", caption="头像是可爱的天子~", width="300") }}
+{{ <figure src="/img/self.jpg" alt="头像是可爱的天子~" caption="头像是可爱的天子~" width="300" /> }}
+
 GPG fingerprint: [D807479F29CF6C637177ED0C47AE037266DF338D](../public.asc)
 
 Hi, I'm uchouT, 这个昵称来自 touhou project 里的[有顶天]. 准大三. 兴趣 & 好奇心
@@ -64,9 +65,9 @@ camp ace7000 pro 车主. 不限于公路车吧, 滑雪, 攀岩这些也喜欢, �
 ---
 
 ## Projects
-{{ collection(file="projects.toml") }}
+{{ <collection file="projects.toml" section /> }}
 
 ---
 
 ## Friends
-{{ collection(file="friends.toml")}}
+{{ <collection file="friends.toml" section /> }}

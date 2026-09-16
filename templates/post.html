@@ -1,0 +1,58 @@
+{% extends "serene/templates/post.html" %}
+
+{% block head %}
+{{ super() }}
+{% if page.extra?.discuss?.x or page.extra?.discuss?.xiaohongshu %}
+<style>
+  body.post .prose .discuss {
+    text-align: center;
+  }
+  body.post .prose .discuss .collection {
+    justify-content: center;
+  }
+  body.post .prose .discuss .item {
+    width: auto;
+    border: none;
+    box-shadow: none;
+  }
+  body.post .prose .discuss .item:hover .icon {
+    color: var(--primary-color);
+  }
+  body.post .prose .discuss .item .icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+  }
+</style>
+{% endif %}
+{% endblock head %}
+
+{% block content %}
+{#- optional discuss links at the end of the article, set in front matter:
+    [extra.discuss]
+    x = "https://x.com/..."
+    xiaohongshu = "https://www.xiaohongshu.com/..." -#}
+{%- set discuss = "" -%}
+{%- if page.extra?.discuss?.x -%}
+{%- set discuss = discuss ~ '<a class="item" href="' ~ (page.extra.discuss.x | escape) ~ '" aria-label="X" target="_blank" rel="noreferrer noopener"><span class="icon">' ~ load_data(path="icon/twitter-x.svg") ~ '</span></a>' -%}
+{%- endif -%}
+{%- if page.extra?.discuss?.xiaohongshu -%}
+{%- set discuss = discuss ~ '<a class="item" href="' ~ (page.extra.discuss.xiaohongshu | escape) ~ '" aria-label="小红书" target="_blank" rel="noreferrer noopener"><span class="icon">' ~ load_data(path="icon/xiaohongshu.svg") ~ '</span></a>' -%}
+{%- endif -%}
+{%- if discuss -%}
+{%- set discuss = '<hr><div class="discuss"><p>Discuss this post on:</p><div class="collection layout-tile flow-inline">' ~ discuss ~ '</div></div></article>' -%}
+{%- else -%}
+{%- set discuss = '</article>' -%}
+{%- endif -%}
+{{ super() | regex_replace(
+     pattern=`<p><img src="(?P<src>[^"]+)" alt="(?P<alt>[^"]+)"(?P<rest>[^>]*)/></p>`,
+     rep=`<figure><img src="${src}" alt=""><figcaption>${alt}</figcaption></figure>`
+   ) | regex_replace(
+     pattern=`(?s)^(.*)</article>`,
+     rep="${1}" ~ (discuss | replace(from="$", to="$$"))
+   ) | safe }}
+{% endblock content %}

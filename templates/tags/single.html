@@ -1,10 +1,8 @@
-{% import "macros/prose.html" as macros %}
-{% import "macros/seo.html" as seo %}
 {% extends "_base.html" %}
 
 {% block page %}tag-single{% endblock page %}
 {% block lang -%}
-{% set blog_section_path = config.extra.blog_section_path | trim_start_matches(pat="/") %}
+{% set blog_section_path = config.extra.blog_section_path | trim_start(pat="/") %}
 {% set section_md_path = blog_section_path ~ "/_index.md"%}
 {% set section = get_section(path=section_md_path, metadata_only=true) %}
 {%- if section.extra.lang %}{{ section.extra.lang }}{% else %}{{ lang }}{% endif -%}
@@ -12,17 +10,16 @@
 {% block title %}uchouT::{{ term.name | lower }}{% endblock title %}
 {% block desc %}
   {%- if section.extra.lang %}{% set og_lang = section.extra.lang %}{% else %}{% set og_lang = lang %}{% endif -%}
-  {{ seo::seo(
-      title=term.name,
-      desc=term.name,
-      url=term.permalink,
-      lang=og_lang
-  ) }}
+  {{ <seo config
+      title={term.name}
+      desc={term.name}
+      url={term.permalink}
+      lang={og_lang} /> }}
 {% endblock desc %}
 
 {% block head %}
 {% if taxonomy.feed %}
-<link rel="alternate" type="application/rss+xml" title="{{ term.name }}" href="{{ term.permalink ~ config.feed_filenames.0 }}">
+<link rel="alternate" type="application/rss+xml" title="{{ term.name }}" href="{{ term.permalink ~ config.feed_filenames[0] }}">
 {% endif %}
 <style>
   body.tag-single .title {
@@ -46,20 +43,22 @@
 
 {% block content %}
 <div id="wrapper">
-  {{ macros::back_link(path = get_url(path="/tags")) }}
+  {% set tags_taxonomy = get_taxonomy(kind="tags") %}
+  {{ <back_link path={tags_taxonomy.permalink} config /> }}
   <main class="layout-list">
     <div class="title">
       <span># {{ term.name }}</span>
       {% if taxonomy.feed %}
       {% set rss_icon = load_data(path="icon/rss.svg") %}
-      <a class="rss" href="{{ term.permalink ~ config.feed_filenames.0 }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
+      <a class="rss" href="{{ term.permalink ~ config.feed_filenames[0] }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
       {% endif %}
     </div>
     <div class="post-list">
+      {% set date_format = section.extra.date_format if section.extra.date_format is defined else (config.extra.date_format if config.extra.date_format is defined else "%b %-d, %Y") %}
       {% for post in term.pages %}
       <a class="post instant {% if post.extra.featured %}featured{% endif %}" href="{{ post.permalink }}">
         <span>{{ post.title }}</span>
-        <span class="date">{{ post.date | date(format=section.extra.date_format) }}</span>
+        <span class="date">{{ post.date | date(format=date_format) }}</span>
       </a>
       {% endfor %}
     </div>

@@ -1,0 +1,8 @@
+{% extends "serene/templates/prose.html" %}
+
+{% block content %}
+{{ super() | regex_replace(
+     pattern=`<p><img src="(?P<src>[^"]+)" alt="(?P<alt>[^"]+)"(?P<rest>[^>]*)/></p>`,
+     rep=`<figure><img src="${src}" alt=""><figcaption>${alt}</figcaption></figure>`
+   ) | safe }}
+{% endblock content %}

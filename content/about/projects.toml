@@ -1,5 +1,6 @@
-[[collection]]
-type = "card"
+layout = "card"
+
+[[item]]
 title = "IronRDP"
 link = "https://github.com/Devolutions/IronRDP"
 content = '''
@@ -11,8 +12,7 @@ The continuously fuzzed, `no_std`-compatible core performs no I/O, so applicatio
 '''
 tags = ["rust", "rdp"]
 
-[[collection]]
-type = "card"
+[[item]]
 title = "qemu-rdp"
 link = "https://gitlab.com/marcandre.lureau/qemu-display"
 content = '''
@@ -25,8 +25,7 @@ other displays/UI that implement the D-Bus interface.
 '''
 tags = ["rust", "qemu", "rdp"]
 
-[[collection]]
-type = "card"
+[[item]]
 title = "stello"
 link = "https://github.com/stello-agent/stello"
 content = '''
@@ -36,8 +35,7 @@ Agent 认知拓扑引擎.
 '''
 tags = ["ts", "agent", "ai"]
 
-[[collection]]
-type = "card"
+[[item]]
 title = "nyat"
 link = "https://github.com/uchouT/nyat"
 content = '''
@@ -47,8 +45,7 @@ NAT traversal toolkit — discover and maintain your public address via STUN. A 
 '''
 tags = ["rust", "toy", "nat"]
 
-[[collection]]
-type = "card"
+[[item]]
 title = "qb-downloader"
 link = "https://github.com/uchouT/qb-downloader"
 content = '''

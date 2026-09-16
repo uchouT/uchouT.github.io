@@ -13,7 +13,7 @@ tags = ["homelab", "Linux", "proxmox", "pve"]
 
 机器是去年寒假从我的菩萨朋友 [@Macesuted][mace] 家里迁过来的. 还记得他手里攥着满满一叠「黄金」造访我家的样子:
 
-{{ figure(src="memory_showup.jpg", width="363") }}
+{{ <figure src="memory_showup.jpg" width="363" page /> }}
 
 他第二天还要回上海, 所以跟我一起装完硬件就匆匆离去了, 他真的, 我哭死. 感谢我的大善人朋友 :)
 
@@ -29,13 +29,13 @@ tags = ["homelab", "Linux", "proxmox", "pve"]
 
 | Hardware | Configuration                                              |
 | :------- | :--------------------------------------------------------- |
-| Server   | Dell PowerEdge R730 (16 盘位 x 2.5 寸)                         |
+| Server   | Dell PowerEdge R730 (16 盘位 x 2.5 寸)                     |
 | CPUs     | 56 x Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz (2 Sockets) |
 | RAM      | 6 x 16G DDR4 ECC                                           |
 | RAID     | Dell PERC H730 Mini                                        |
 | Storage  | 8 x 900G SAS HDD                                           |
-| Network  | 四口千兆电口                                                     |
-| Power    | 750W EPP, 可 1+1 冗余升级                                       |
+| Network  | 四口千兆电口                                               |
+| Power    | 750W EPP, 可 1+1 冗余升级                                  |
 
 机器安装 Proxmox VE.
 
@@ -67,13 +67,16 @@ tags = ["homelab", "Linux", "proxmox", "pve"]
 
 路由方案采用经典的主旁路由方案: 主路由 ikuai, 负责基础的拨号上网 + 路由; 旁路由 iStoreOS (预装的功能有点多, 下次回家可能要换成 immortalWrt), 其插件系统能提供更多的高级玩法.
 
+> [!NOTE]
+> 现在博主已经换成 mikrotik R5009 硬主路由 (RouterOS) + immortalWRT 软旁路由了.
+
 在 PVE 中创建两个 VM 并刷入对应的系统, 然后来配置 bridge:
 
-| bridge  | 网段            | Ports          | 用途  |
-| ------- | ------------- | -------------- | --- |
+| bridge  | 网段          | Ports               | 用途   |
+| ------- | ------------- | ------------------- | ------ |
 | `vmbr0` | 10.10.10.0/24 | `eno2` (连接交换机) | 主内网 |
-| `vmbr1` |               | `eno1` (连接光猫)  | WAN |
-| `vmbr2` | 10.10.20.0/24 |                | DMZ |
+| `vmbr1` |               | `eno1` (连接光猫)   | WAN    |
+| `vmbr2` | 10.10.20.0/24 |                     | DMZ    |
 
 说明一下 vmbr2: 计划将后续能公网直接访问的容器或虚拟机放在此网段用于安全隔离.
 
@@ -81,7 +84,7 @@ PVE 宿主机接入 vmbr0, IP: `10.10.10.2`
 
 VMs 配置:
 
-| VM       | 接口                                                       | 地址                           |
+| VM       | 接口                                                     | 地址                         |
 | -------- | -------------------------------------------------------- | ---------------------------- |
 | ikuai    | `eth0` - `vmbr0`<br>`eth1` - `vmbr1`<br>`eth2` - `vmbr2` | `10.10.10.1`<br>`10.10.20.1` |
 | iStoreOS | `eth0` - `vmbr0`<br>`eth1` - `vmbr2`                     | `10.10.10.3`<br>`10.10.20.3` |
@@ -139,8 +142,7 @@ zerotier 搭建在旁路由 iStoreOS 上, 在 zerotier 的 dashboard 配置一�
 
 旁路由装个 openclash, 然后把需要走透明代理的设备的 gateway 从默认的主路由地址 10.10.10.1 / 10.10.20.1 改成旁路由地址 10.10.10.3 / 10.10.20.3 即可实现科学上网. 我的 dev 机就是这么操作的, KitKit 的自动化机器人也是这么接入代理的, 在里面跑 cc-connect 和 codex / claude code 非常丝滑.
 
-
-{{ figure(src="devel.png", alt="ssh + tmux, 光标延迟完全无感", caption="ssh + tmux, 光标延迟完全无感", width="500") }}
+{{ <figure src="devel.png" alt="ssh + tmux, 光标延迟完全无感" caption="ssh + tmux, 光标延迟完全无感" width="500" page /> }}
 
 ---
 
@@ -156,12 +158,12 @@ zerotier 搭建在旁路由 iStoreOS 上, 在 zerotier 的 dashboard 配置一�
 
 总的来说, 服务大多跑在主内网以保障安全性. 之前在 [mace][mace] 家的时候, 因为只有一台机子, 所以想跑很多服务采用的是 docker / podman. 而现在可以直接一个服务一个 lxc 容器, 开始有点分布式的味道了! 而且有个很好用的 homelab 玩家社区 [community script](https://community-scripts.org/), 里面包装好了很多常见的 lxc 容器, 尝试提供像 docker 一样便捷的服务搭建方式.
 
-{{ figure(src="lxc.png", alt="我跑的一些服务", caption="我跑的一些服务", width="500") }}
+{{ <figure src="lxc.png" alt="我跑的一些服务" caption="我跑的一些服务" width="500" page /> }}
 
 直接需要公网发现的服务, 比如 syncthing, qBittorrent 就跑在 DMZ 区域. web 服务统一走 ingress 容器的 nginx 反代.
 
 拿 cc 画了个拓扑图:
 
-{{ figure(src="topology.svg", alt="homelab topology", caption="homelab topology") }}
+{{ <figure src="topology.svg" alt="homelab topology" caption="homelab topology" page /> }}
 
-[mace]: <https://macesuted.moe>
+[mace]: https://macesuted.moe

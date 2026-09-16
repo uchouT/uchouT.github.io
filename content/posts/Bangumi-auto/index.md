@@ -202,7 +202,7 @@ nano qb_auto.sh
 ```
 
 粘贴以下内容：
-{% detail(title="qb_auto.sh", default_open=false) %}
+{% <detail title="qb_auto.sh" default_open={false}> %}
 ```bash
 #!/bin/bash
 torrent_name=$1
@@ -370,7 +370,7 @@ echo "Cookie:${cookie}" >> ${log_dir}/qb.log
 echo -e "-------------------------------------------------------------\n" >> ${log_dir}/qb.log
 ```
 
-{% end %}
+{% </detail> %}
 
 说明：
 

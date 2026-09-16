@@ -1,10 +1,8 @@
-{% import "macros/prose.html" as macros %}
-{% import "macros/seo.html" as seo %}
 {% extends "_base.html" %}
 
 {% block page %}blog category-list{% endblock page%}
 {% block lang -%}
-{% set blog_section_path = config.extra.blog_section_path | trim_start_matches(pat="/") %}
+{% set blog_section_path = config.extra.blog_section_path | trim_start(pat="/") %}
 {% set section_md_path = blog_section_path ~ "/_index.md"%}
 {% set section = get_section(path=section_md_path) %}
 {%- if section.extra.lang %}{{ section.extra.lang }}{% else %}{{ lang }}{% endif -%}
@@ -12,12 +10,11 @@
 {% block title %}uchouT::categories{% endblock title %}
 {% block desc %}
   {%- if section.extra.lang %}{% set og_lang = section.extra.lang %}{% else %}{% set og_lang = lang %}{% endif -%}
-  {{ seo::seo(
-      title="Categories",
-      desc="Posts grouped by category",
-      url=current_url | default(value=""),
-      lang=og_lang
-  ) }}
+  {{ <seo config
+      title="Categories"
+      desc="Posts grouped by category"
+      url={current_url or ""}
+      lang={og_lang} /> }}
 {% endblock desc %}
 
 {% block head %}
@@ -64,32 +61,36 @@
 
 {% block content %}
 <div id="wrapper">
-  {{ macros::back_link(path = get_url(path=config.extra.blog_section_path)) }}
+  {{ <back_link path={get_url(path=config.extra.blog_section_path)} config /> }}
   <div class="section-title">
     <h1>Categories</h1>
   </div>
   <main class="layout-list">
-    {# how many posts to list under each category, rest is behind the "read more" link #}
-    {% set max_posts = section.extra.category_max_posts | default(value=5) %}
-    {% for category, posts in section.pages | sort(attribute="taxonomies.categories.0") | group_by(attribute="taxonomies.categories.0") %}
+    {# how many posts to list under each category, the rest is behind the "read more" link #}
+    {% set max_posts = section.extra.category_max_posts if section.extra.category_max_posts is defined else 5 %}
+    {% set date_format = section.extra.date_format if section.extra.date_format is defined else (config.extra.date_format if config.extra.date_format is defined else "%b %-d, %Y") %}
+    {% set categorized_posts = [post for post in section.pages if post.taxonomies?.categories] %}
+    {% set categories = [post.taxonomies.categories[0] for post in categorized_posts] | unique | sort %}
+    {% for category in categories %}
+    {% set posts = [post for post in categorized_posts if post.taxonomies.categories[0] == category] %}
     {% set category_name = category %}
-    {% if category is matching("^__[0-9]{2}__") %}
-      {% set category_name = category | split(pat="") | slice(start=7) | join(sep="") %}
+    {% if category is matching(pat="^__[0-9]{2}__") %}
+      {% set category_name = category[6:] %}
     {% endif %}
-    {% set term_url = get_taxonomy_url(kind="categories", name=category) %}
+    {% set term_url = get_taxonomy_url(kind="categories", term=category) %}
     <h2 class="category">
       <a class="instant name" href="{{ term_url }}">{{ category_name }}</a>
       {% if taxonomy.feed %}
       {% set rss_icon = load_data(path="icon/rss.svg") %}
-      <a class="rss" href="{{ term_url ~ config.feed_filenames.0 }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
+      <a class="rss" href="{{ term_url ~ config.feed_filenames[0] }}" aria-label="RSS" title="RSS">{{ rss_icon | safe }}</a>
       {% endif %}
     </h2>
     {% set total = posts | length %}
     <div class="post-list categorized">
-      {% for post in posts | slice(end=max_posts) %}
+      {% for post in posts[:max_posts] %}
       <a class="post instant {% if post.extra.featured %}featured{% endif %}" href="{{ post.permalink }}">
         <span>{{ post.title }}</span>
-        <span class="date">{{ post.date | date(format=section.extra.date_format) }}</span>
+        <span class="date">{{ post.date | date(format=date_format) }}</span>
       </a>
       {% endfor %}
       {% if total > max_posts %}

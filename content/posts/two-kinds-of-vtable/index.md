@@ -22,11 +22,10 @@ tags = ["rust", "programming", "vtable", "oop", "c", "cpp"]
 
 来实现一个简单的控制台 Logger.
 
-{% note(title="Note") %}
-例子是高度简化的, 并且纯栈上分发, 也没有资源需要释放. 因此 drop, size, align 等我就不放到 vtable 中了.
-
-(主要还是因为懒
-{% end %}
+> [!NOTE]
+> 例子是高度简化的, 并且纯栈上分发, 也没有资源需要释放. 因此 drop, size, align 等我就不放到 vtable 中了.
+>
+> (主要还是因为懒
 
 ---
 
@@ -399,18 +398,17 @@ static void logger_error(void *self, const char *msg)
 
 fat pointer 通过 vtable 找到函数指针, 然后把 `data` 地址作为函数参数传入. `data` 和 vtable 的参数都是擦除类型的指针 `void *`, 因此正好对齐.
 
-{% note(title="Note") %}
-这里实际上模拟的, 是 rust 编译器为 dyn-compatible (object-safe) 的 trait 隐式合成的"`dyn Trait` 自身实现该 trait"那一层桥接, 概念上等价于:
-
-```rust
-// 概念示意 —— 编译器合成
-impl Logger for dyn Logger {
-    /* 每个方法都转发到 vtable */
-}
-```
-
-为了让分发函数和 vtable 中的 impl 函数指针签名一致, 上面用 c 模拟的代码也用 `void *self` 作为签名, 虽然实际中直接传 `DynLogger` 更直接。
-{% end %}
+> [!NOTE]
+> 这里实际上模拟的, 是 rust 编译器为 dyn-compatible (object-safe) 的 trait 隐式合成的"`dyn Trait` 自身实现该 trait"那一层桥接, 概念上等价于:
+>
+> ```rust
+> // 概念示意 —— 编译器合成
+> impl Logger for dyn Logger {
+>     /* 每个方法都转发到 vtable */
+> }
+> ```
+>
+> 为了让分发函数和 vtable 中的 impl 函数指针签名一致, 上面用 c 模拟的代码也用 `void *self` 作为签名, 虽然实际中直接传 `DynLogger` 更直接。
 
 ---
 
@@ -698,7 +696,8 @@ cpp style 拿到的句柄是 `Logger *`——只有 1 word, vptr 还在对象内
 
 rust style 拿到的句柄是 `DynLogger` 这个 fat pointer——2 words, 按 ABI 通常**直接放在两个寄存器里**, vtable 已经在手上, **省掉了第一次 mem load**.
 
-{% note() %} 这里对比的起点是已经拿到 pointer, 构造 fat pointer 需要额外开销. {% end %}
+> [!NOTE]
+>  这里对比的起点是已经拿到 pointer, 构造 fat pointer 需要额外开销. 
 
 | | cpp style | rust style |
 |---|---|---|
