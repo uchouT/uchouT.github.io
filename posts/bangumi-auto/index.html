@@ -1,0 +1,886 @@
+
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+    
+  <meta name="description" content="2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 Ani-rss，本文也作了相应修改。
+前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：
+
+自动下载字幕组发布的新番资源，做种后释放空间。
+番剧自动重命名为容易被 emby 等媒体库刮削的格式，并上传至网盘。
+emby 媒体库弹幕支持。
+emby 媒体库播放番剧，流量不走 VPS，直接通过 302 重定向到网盘。（需要网盘支持）
+
+其中最后一个特性也很适合网盘有大量媒体资源，想做成媒体库的朋友们。">
+<link rel="canonical" href="https://uchout.moe/posts/bangumi-auto/">
+<meta property="og:site_name" content="uchouT&#39;s Gensokyo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ani-rss + qb + alist + symlink + emby 实现的新番媒体库">
+<meta property="og:description" content="2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 Ani-rss，本文也作了相应修改。
+前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：
+
+自动下载字幕组发布的新番资源，做种后释放空间。
+番剧自动重命名为容易被 emby 等媒体库刮削的格式，并上传至网盘。
+emby 媒体库弹幕支持。
+emby 媒体库播放番剧，流量不走 VPS，直接通过 302 重定向到网盘。（需要网盘支持）
+
+其中最后一个特性也很适合网盘有大量媒体资源，想做成媒体库的朋友们。">
+<meta property="og:url" content="https://uchout.moe/posts/bangumi-auto/">
+<meta property="og:locale" content="zh">
+
+
+<meta property="article:published_time" content="2025-01-11">
+<meta property="article:modified_time" content="2025-02-24">
+<meta property="article:tag" content="ACG">
+<meta property="article:tag" content="Torrent">
+<meta property="article:tag" content="Emby">
+
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ani-rss + qb + alist + symlink + emby 实现的新番媒体库">
+<meta name="twitter:description" content="2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 Ani-rss，本文也作了相应修改。
+前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：
+
+自动下载字幕组发布的新番资源，做种后释放空间。
+番剧自动重命名为容易被 emby 等媒体库刮削的格式，并上传至网盘。
+emby 媒体库弹幕支持。
+emby 媒体库播放番剧，流量不走 VPS，直接通过 302 重定向到网盘。（需要网盘支持）
+
+其中最后一个特性也很适合网盘有大量媒体资源，想做成媒体库的朋友们。">
+
+
+
+  <title>Ani-rss + qb + alist + symlink + emby 实现的新番媒体库</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.jsdmirror.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdmirror.com/npm/@wc1font/lxgw-wen-kai-screen/font.css">
+<style>
+  /* Crimson Text, declared here instead of via a google-fonts stylesheet so we
+     can apply size-adjust.
+
+     Crimson Text has a small x-height (0.427em) compared to LXGW WenKai's own
+     latin glyphs (0.508em), so latin text renders visibly smaller than the
+     chinese around it. 115% sits between matching x-height (119%) and matching
+     cap-height (112%). Tune it here; it does not affect the chinese font.
+
+     jsDelivr first, gstatic as a fallback if it ever fails to load. */
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfbwhT.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-ext-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfYQhTM_I.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: "Crimson Text", "LXGW WenKai Screen", ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 1.1em;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+  /* smaller font on mobile (desktop is 1.1em, set above) */
+  @media (max-width: 768px) {
+    body {
+      --font-size: 1em;
+    }
+  }
+
+  /* footer rss button, icon instead of text */
+  body footer .right #rss-btn {
+    padding: 4px;
+    line-height: 0;
+  }
+  body footer .right #rss-btn svg {
+    scale: 0.7;
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+<link id="hl" rel="stylesheet" type="text/css" href="/giallo-light.css" />
+
+
+
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#qian-ti">前提</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#wo-de-huan-jing">我的环境</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#xiang-xi-bu-shu">详细部署</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#alist">Alist</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#rclone">Rclone</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#qbittorrent">qBittorrent</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#autobangumi">AutoBangumi</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#ani-rss">Ani-rss</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#autosymlink">AutoSymlink</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#emby">emby</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#emby2alist">emby2Alist</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#can-kao">参考</a>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https://uchout.moe/posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>Ani-rss + qb + alist + symlink + emby 实现的新番媒体库</h1>
+        
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Jan 11, 2025</span>
+            <span>Updated on <span id="updated">Feb 24, 2025</span></span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/acg/"><span>#</span>ACG</a><a class="instant" href="https://uchout.moe/tags/torrent/"><span>#</span>Torrent</a><a class="instant" href="https://uchout.moe/tags/emby/"><span>#</span>Emby</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <p>2025-02-24 更新，AutoBangumi 的怪事有点多，不如切换为 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/wushuo894/ani-rss">Ani-rss</a>，本文也作了相应修改。</p>
+<p>前阵子手上的 E5 订阅惨遭封禁，然后上了世纪互联车，准备倒腾一下自动化追番方案。然后就发现了一套自认为相当不错的方案，可以实现：</p>
+<ul>
+<li>自动下载字幕组发布的新番资源，做种后释放空间。</li>
+<li>番剧自动重命名为容易被 emby 等媒体库刮削的格式，并上传至网盘。</li>
+<li>emby 媒体库弹幕支持。</li>
+<li>emby 媒体库播放番剧，流量不走 VPS，直接通过 302 重定向到网盘。（需要网盘支持）</li>
+</ul>
+<p>其中最后一个特性也很适合网盘有大量媒体资源，想做成媒体库的朋友们。</p>
+<span id="continue-reading"></span>
+<p><strong>效果展示：</strong>
+<img src="https://uchout.moe/posts/bangumi-auto/%E6%95%88%E6%9E%9C.png" alt="" /></p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/%E6%95%88%E6%9E%9C2.png" alt="" /></p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/%E6%95%88%E6%9E%9C3.png" alt="" /></p>
+<h2 id="qian-ti">前提<a class="zola-anchor" href="#qian-ti" aria-label="Anchor link for: qian-ti" style="visibility: hidden;"></a>
+</h2>
+<ul>
+<li>一台小鸡，配置不用很高，带宽和硬盘均没有特别高的要求，因为资源都在云上。（如果没有公网访问需求直接拿 PC 也行）</li>
+<li>一个支持 302 重定向的网盘（OD，阿里云盘等）</li>
+<li>Nginx 和 njs module</li>
+</ul>
+<h3 id="wo-de-huan-jing">我的环境<a class="zola-anchor" href="#wo-de-huan-jing" aria-label="Anchor link for: wo-de-huan-jing" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>Ubuntu 22.04.5 LTS</li>
+<li>2 vCPU, 1GB RAM 40GB Disk</li>
+<li>OneDrive 世纪互联</li>
+</ul>
+<h2 id="xiang-xi-bu-shu">详细部署<a class="zola-anchor" href="#xiang-xi-bu-shu" aria-label="Anchor link for: xiang-xi-bu-shu" style="visibility: hidden;"></a>
+</h2>
+<h3 id="alist">Alist<a class="zola-anchor" href="#alist" aria-label="Anchor link for: alist" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>添加网盘，提供 302 重定向。</li>
+</ul>
+<p>安装配置非常简单，按照 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://alist.nn.ci/">官方文档</a> 进行部署即可。</p>
+<p><strong>注意：</strong></p>
+<ul>
+<li>存储建立时，「WEBDAV 策略」一定要选「302 重定向」。</li>
+<li>需要开启 WEBDAV 功能。</li>
+</ul>
+<hr />
+<h3 id="rclone">Rclone<a class="zola-anchor" href="#rclone" aria-label="Anchor link for: rclone" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>将 Alist 挂载到本地。</li>
+<li>将 qBittorrent 下载的种子上传到网盘。</li>
+</ul>
+<p>此处说明简略，更详细的配置流程请自行上网搜索。</p>
+<h4 id="an-zhuang">安装<a class="zola-anchor" href="#an-zhuang" aria-label="Anchor link for: an-zhuang" style="visibility: hidden;"></a>
+</h4>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://rclone.org">官方</a> 一键脚本:</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">sudo</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">v</span><span class="z-l-8 z-d-4"> ;</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> curl</span><span class="z-l-5 z-d-7"> https://rclone.org/install.sh</span><span class="z-l-2 z-d-5"> |</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> sudo</span><span class="z-l-5 z-d-7"> bash</span></span></code></pre><h4 id="pei-zhi">配置<a class="zola-anchor" href="#pei-zhi" aria-label="Anchor link for: pei-zhi" style="visibility: hidden;"></a>
+</h4>
+<p><code>rclone config</code> 添加 remote 配置，将 Alist 添加为 WEBDAV。</p>
+<ul>
+<li>WEBDAV 参数参照 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://alist.nn.ci/guide/webdav.html">Alist 文档</a></li>
+</ul>
+<table><thead><tr><th>Name</th><th>Value</th></tr></thead><tbody>
+<tr><td>Url</td><td>https://domain:port/dav/</td></tr>
+<tr><td>Host</td><td>domain</td></tr>
+<tr><td>Path</td><td>dav</td></tr>
+<tr><td>Scheme</td><td>http/https</td></tr>
+<tr><td>Port</td><td>Same as web port</td></tr>
+<tr><td>Username</td><td>Same as web username</td></tr>
+<tr><td>Password</td><td>Same as web password</td></tr>
+</tbody></table>
+<h4 id="gua-zai-alist-dao-ben-di">挂载 Alist 到本地<a class="zola-anchor" href="#gua-zai-alist-dao-ben-di" aria-label="Anchor link for: gua-zai-alist-dao-ben-di" style="visibility: hidden;"></a>
+</h4>
+<p>创建后台脚本：</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">nano</span><span class="z-l-5 z-d-7"> /etc/systemd/system/rclone-mount.service</span></span></code></pre>
+<p>粘贴以下文本，并适当修改：</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="ini"><span class="giallo-l"><span class="z-l-8 z-d-4">[</span><span class="z-l-13 z-d-15">Unit</span><span class="z-l-8 z-d-4">]</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">Description</span><span class="z-l-2 z-d-5">=</span><span>Mount Rclone</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">After</span><span class="z-l-2 z-d-5">=</span><span>network-online.target</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">Wants</span><span class="z-l-2 z-d-5">=</span><span>network-online.target</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">[</span><span class="z-l-13 z-d-15">Service</span><span class="z-l-8 z-d-4">]</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">ExecStart</span><span class="z-l-2 z-d-5">=</span><span>/usr/bin/rclone mount alist: /mnt/alist  \</span></span>
+<span class="giallo-l"><span>--allow-other --</span><span class="z-l-3 z-d-2">vfs-cache-mode</span><span class="z-l-2 z-d-5">=</span><span>full  \</span></span>
+<span class="giallo-l"><span>--allow-non-empty  --</span><span class="z-l-3 z-d-2">vfs-read-chunk-size</span><span class="z-l-2 z-d-5">=</span><span>4M --</span><span class="z-l-3 z-d-2">buffer-size</span><span class="z-l-2 z-d-5">=</span><span>32M</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">ExecStop</span><span class="z-l-2 z-d-5">=</span><span>/bin/fusermount -u /mnt/alist</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">Restart</span><span class="z-l-2 z-d-5">=</span><span>on-failure</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">User</span><span class="z-l-2 z-d-5">=</span><span>root</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">[</span><span class="z-l-13 z-d-15">Install</span><span class="z-l-8 z-d-4">]</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">WantedBy</span><span class="z-l-2 z-d-5">=</span><span>multi-user.target</span></span></code></pre>
+<ul>
+<li>rclone mount 使用：<code>rclone mount remote:path/to/files /path/to/local/mount</code></li>
+</ul>
+<p>服务创建完后，启动挂载：</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">systemctl</span><span class="z-l-5 z-d-7"> enable</span><span class="z-l-5 z-d-7"> rclone-mount.service</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">systemctl</span><span class="z-l-5 z-d-7"> start</span><span class="z-l-5 z-d-7"> rclone-mount.service</span></span></code></pre>
+<p>如果配置正确，此时 <code>ls</code> 查看你设置的挂载路径，应该可以看到 alist 中的文件。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">ls</span><span class="z-l-5 z-d-7"> /mnt/alist</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i"> Anime</span><span class="z-l-5 z-d-7">    Bangumi</span><span class="z-l-5 z-d-7">  ...</span></span></code></pre>
+<hr />
+<h3 id="qbittorrent">qBittorrent<a class="zola-anchor" href="#qbittorrent" aria-label="Anchor link for: qbittorrent" style="visibility: hidden;"></a>
+</h3>
+<p>建议设置合适的保种时长，避免吸血。</p>
+<h4 id="an-zhuang-1">安装<a class="zola-anchor" href="#an-zhuang-1" aria-label="Anchor link for: an-zhuang-1" style="visibility: hidden;"></a>
+</h4>
+<p>推荐使用增强版：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/c0re100/qBittorrent-Enhanced-Edition">GitHub</a></p>
+<p><strong>强烈建议</strong>在「Bittorrent」设置页面将做种时长设置在 1 天以上。</p>
+<h4 id="pei-zhi-hou-tai-yun-xing">配置后台运行<a class="zola-anchor" href="#pei-zhi-hou-tai-yun-xing" aria-label="Anchor link for: pei-zhi-hou-tai-yun-xing" style="visibility: hidden;"></a>
+</h4>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">nano</span><span class="z-l-5 z-d-7"> /etc/systemd/system/qbittorrent.service</span></span></code></pre>
+<p>粘贴以下配置：</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="ini"><span class="giallo-l"><span class="z-l-8 z-d-4">[</span><span class="z-l-13 z-d-15">Unit</span><span class="z-l-8 z-d-4">]</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">Description</span><span class="z-l-2 z-d-5">=</span><span>qBittorrent Enhanced Edition Service</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">After</span><span class="z-l-2 z-d-5">=</span><span>network.target</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">[</span><span class="z-l-13 z-d-15">Service</span><span class="z-l-8 z-d-4">]</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">Type</span><span class="z-l-2 z-d-5">=</span><span>simple</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">User</span><span class="z-l-2 z-d-5">=</span><span>root</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">LimitNOFILE</span><span class="z-l-2 z-d-5">=</span><span>32768</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">ExecStart</span><span class="z-l-2 z-d-5">=</span><span>/usr/bin/qbittorrent-nox</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">TimeoutSec</span><span class="z-l-2 z-d-5">=</span><span>120</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">[</span><span class="z-l-13 z-d-15">Install</span><span class="z-l-8 z-d-4">]</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">WantedBy</span><span class="z-l-2 z-d-5">=</span><span>multi-user.target</span></span></code></pre>
+<p>启动 qBittorrent</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">systemctl</span><span class="z-l-5 z-d-7"> enable</span><span class="z-l-5 z-d-7"> qbittorrent</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">systemctl</span><span class="z-l-5 z-d-7"> start</span><span class="z-l-5 z-d-7"> qbittorrent</span></span></code></pre><h4 id="she-zhi-rclone-shang-chuan-jiao-ben">设置 Rclone 上传脚本<a class="zola-anchor" href="#she-zhi-rclone-shang-chuan-jiao-ben" aria-label="Anchor link for: she-zhi-rclone-shang-chuan-jiao-ben" style="visibility: hidden;"></a>
+</h4>
+<p><strong>如果是用 Ani-rss，跳过这一步，用 Ani-rss 自带的 alist 上传，效果更好一些。</strong>
+脚本原地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://hostloc.com/thread-612238-1-1.html">【更新分享率控制】qBittorrent + Rclone 自动上传脚本</a></p>
+<p>我做了少量修改，可以额外实现：</p>
+<ul>
+<li><code>Bangumi</code> 分类的种子等待 <a href="https://uchout.moe/posts/bangumi-auto/#AutoBangumi">AutoBangumi</a> 重命名后上传。</li>
+<li>上传到路径与种子保持路径一致。</li>
+<li>单文件种子创建文件夹上传。</li>
+</ul>
+<p>访问网页进行配置，默认端口为 <code>8080</code></p>
+<p>进入设置，在「连接」窗口，勾选「Torrent 完成时运行外部程序」，然后输入：</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="plain"><span class="giallo-l"><span>bash /root/qb_auto.sh  &quot;%N&quot; &quot;%F&quot; &quot;%R&quot; &quot;%D&quot; &quot;%C&quot; &quot;%Z&quot; &quot;%I&quot; &quot;%L&quot;</span></span></code></pre>
+<p><img src="https://uchout.moe/posts/bangumi-auto/4.png" alt="" /></p>
+<p>创建脚本：</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">nano</span><span class="z-l-5 z-d-7"> qb_auto.sh</span></span></code></pre>
+<p>粘贴以下内容：</p>
+<details>
+<summary><span>qb_auto.sh</span></summary>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-15 z-l-i z-d-13 z-d-i">#!</span><span class="z-l-15 z-l-i z-d-13 z-d-i">/bin/bash</span></span>
+<span class="giallo-l"><span>torrent_name</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">1</span></span>
+<span class="giallo-l"><span>content_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">2</span></span>
+<span class="giallo-l"><span>root_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">3</span></span>
+<span class="giallo-l"><span>save_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">4</span></span>
+<span class="giallo-l"><span>files_num</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">5</span></span>
+<span class="giallo-l"><span>torrent_size</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">6</span></span>
+<span class="giallo-l"><span>torrent_hash</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">7</span></span>
+<span class="giallo-l"><span>torrent_type</span><span class="z-l-2 z-d-5">=</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">8</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">#</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> if [ ${torrent_type} == &quot;ani-rss&quot; ]</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">#</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> then</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">#</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 	exit 0</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">#</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> fi</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span>qb_version</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">4.5.4</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>qb_username</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">admin</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>qb_password</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">password</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>qb_web_url</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">http://localhost:8080</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>log_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>HOME</span><span class="z-l-5 z-d-7">/qblog</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>rclone_dest</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">od</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>rclone_parallel</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">5</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>uploaded_flag</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">rcloned</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>alist_host</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">http://localhost:5244</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>alist_token</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>emby_host</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">http://localhost:8091</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>emby_api_key</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>emby_ids</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">(</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">3</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span>tg_bot_token</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>tg_chat_id</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-2 z-d-5"> !</span><span class="z-l-2 z-d-5"> -d</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">then</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">	mkdir</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">p</span><span> $</span><span>{</span><span>log_dir</span><span>}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">fi</span></span>
+<span class="giallo-l"><span>version</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span> $</span><span>qb_version</span><span class="z-l-2 z-d-5"> |</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> grep</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">P</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">o</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">([0-9]\.){2}[0-9]</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> |</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> sed</span><span class="z-l-5 z-d-7"> s/</span><span class="z-l-15 z-d-13">\\</span><span class="z-l-5 z-d-7">.//g</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">function</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> qb_login</span><span class="z-l-8 z-d-4">(</span><span class="z-l-8 z-d-4">)</span><span class="z-l-8 z-d-4">{</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>version</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> -gt</span><span class="z-l-16 z-d-16"> 404</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span>		qb_v</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">1</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>		cookie</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">i</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-header</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">Referer: </span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-data</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">username=</span><span>$</span><span>{</span><span>qb_username</span><span>}</span><span class="z-l-5 z-d-7">&amp;password=</span><span>$</span><span>{</span><span>qb_password</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span class="z-l-5 z-d-7">/api/v2/auth/login</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> |</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> grep</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">P</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">o</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">SID=\S{32}</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-2 z-d-5"> -n</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		then</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">			echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] 登录成功！cookie:</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb_login.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		else</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">			echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] 登录失败！</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb_login.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		fi</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	elif</span><span class="z-l-8 z-d-4"> [[</span><span> $</span><span>{</span><span>version</span><span>}</span><span class="z-l-2 z-d-5"> -le</span><span class="z-l-16 z-d-16"> 404</span><span class="z-l-2 z-d-5"> &amp;&amp;</span><span> $</span><span>{</span><span>version</span><span>}</span><span class="z-l-2 z-d-5"> -ge</span><span class="z-l-16 z-d-16"> 320</span><span class="z-l-8 z-d-4"> ]]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span>		qb_v</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">2</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>		cookie</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">i</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-header</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">Referer: </span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-data</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">username=</span><span>$</span><span>{</span><span>qb_username</span><span>}</span><span class="z-l-5 z-d-7">&amp;password=</span><span>$</span><span>{</span><span>qb_password</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span class="z-l-5 z-d-7">/login</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> |</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> grep</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">P</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">o</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">SID=\S{32}</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-2 z-d-5"> -n</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		then</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">			echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] 登录成功！cookie:</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb_login.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		else</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">			echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] 登录失败</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb_login.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		fi</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	elif</span><span class="z-l-8 z-d-4"> [[</span><span> $</span><span>{</span><span>version</span><span>}</span><span class="z-l-2 z-d-5"> -ge</span><span class="z-l-16 z-d-16"> 310</span><span class="z-l-2 z-d-5"> &amp;&amp;</span><span> $</span><span>{</span><span>version</span><span>}</span><span class="z-l-2 z-d-5"> -lt</span><span class="z-l-16 z-d-16"> 320</span><span class="z-l-8 z-d-4"> ]]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span>		qb_v</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">3</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">		echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">陈年老版本，请及时升级</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">		exit</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	else</span></span>
+<span class="giallo-l"><span>		qb_v</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">0</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">		exit</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	fi</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">function</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> tg_notice</span><span class="z-l-8 z-d-4">(</span><span class="z-l-8 z-d-4">)</span><span class="z-l-8 z-d-4">{</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">    curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">s</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">X</span><span class="z-l-5 z-d-7"> POST</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">https://api.telegram.org/bot</span><span>$</span><span>{</span><span>tg_bot_token</span><span>}</span><span class="z-l-5 z-d-7">/sendMessage</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">    -</span><span class="z-l-5 z-d-7">d</span><span class="z-l-5 z-d-7"> chat_id=</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>{</span><span>tg_chat_id</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">    -</span><span class="z-l-5 z-d-7">d</span><span class="z-l-5 z-d-7"> text=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">Emby 媒体库已刷新</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">    -</span><span class="z-l-5 z-d-7">d</span><span class="z-l-5 z-d-7"> parse_mode=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">Markdown</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">function</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> emby_refresh</span><span class="z-l-8 z-d-4">(</span><span class="z-l-8 z-d-4">)</span><span class="z-l-8 z-d-4">{</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  local</span><span> s</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">Recursive=true&amp;ImageRefreshMode=Default&amp;MetadataRefreshMode=Default&amp;ReplaceAllImages=false&amp;ReplaceAllMetadata=false</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  for</span><span> id</span><span class="z-l-9 z-d-9"> in</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>emby_ids</span><span class="z-l-8 z-d-4">[</span><span class="z-l-2 z-d-5">@</span><span class="z-l-8 z-d-4">]</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">;</span><span class="z-l-9 z-d-9"> do</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	 local</span><span> code</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">s</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">o</span><span class="z-l-5 z-d-7"> /dev/null</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">w</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">%{http_code}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">	 -</span><span class="z-l-5 z-d-7">X</span><span class="z-l-5 z-d-7"> POST</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>emby_host</span><span>}</span><span class="z-l-5 z-d-7">/emby/Items/</span><span>$</span><span>{</span><span>id</span><span>}</span><span class="z-l-5 z-d-7">/Refresh?</span><span>$</span><span>{</span><span>s</span><span>}</span><span class="z-l-5 z-d-7">&amp;api_key=</span><span>$</span><span>{</span><span>emby_api_key</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	 if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>code</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> -eq</span><span class="z-l-16 z-d-16"> 204</span><span class="z-l-8 z-d-4"> ]</span><span class="z-l-8 z-d-4">;</span><span class="z-l-9 z-d-9"> then</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">		 echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] Emby: ID </span><span>$</span><span>{</span><span>id</span><span>}</span><span class="z-l-5 z-d-7"> 刷新成功！</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/ani.log</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		 tg_notice</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	 else</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">		 echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] Emby: ID </span><span>$</span><span>{</span><span>id</span><span>}</span><span class="z-l-5 z-d-7"> 刷新失败！</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/ani.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	 fi</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  done</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">function</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> alist_refresh</span><span class="z-l-8 z-d-4">(</span><span class="z-l-8 z-d-4">)</span><span class="z-l-8 z-d-4">{</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  local</span><span> path</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-14 z-l-i z-d-10 z-d-i">$</span><span class="z-l-14 z-l-i z-d-10 z-d-i">1</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  local</span><span> url</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>{</span><span>alist_host</span><span>}</span><span class="z-l-5 z-d-7">/api/fs/list</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  local</span><span> json</span></span>
+<span class="giallo-l"><span>  json</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">jq</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">n</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-argjson</span><span class="z-l-5 z-d-7"> refresh</span><span class="z-l-16 z-d-16"> true</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-arg</span><span class="z-l-5 z-d-7"> path</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>path</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">{refresh: $refresh, path: $path}</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  local</span><span> res</span></span>
+<span class="giallo-l"><span>  res</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">s</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">X</span><span class="z-l-5 z-d-7"> POST</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>url</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">    -</span><span class="z-l-5 z-d-7">H</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">Authorization: </span><span>$</span><span>{</span><span>alist_token</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">    -</span><span class="z-l-5 z-d-7">H</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">Content-Type: application/json</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">	-</span><span class="z-l-5 z-d-7">d</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>json</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  local</span><span> code</span></span>
+<span class="giallo-l"><span>  code</span><span class="z-l-2 z-d-5">=</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>res</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> |</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> jq</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">r</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">.code</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>code</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> -eq</span><span class="z-l-16 z-d-16"> 200</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  then</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">    	echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] Alist: </span><span>$</span><span>path</span><span class="z-l-5 z-d-7"> 刷新成功！</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/ani.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  else</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">	echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] Alist: </span><span>$</span><span>path</span><span class="z-l-5 z-d-7"> 刷新失败！</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/ani.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">  fi</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">function</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> rclone_copy</span><span class="z-l-8 z-d-4">(</span><span class="z-l-8 z-d-4">)</span><span class="z-l-8 z-d-4">{</span></span>
+<span class="giallo-l"><span>	local_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>type</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> ==</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">file</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>torrent_type</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> ==</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">ani-rss</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		then</span></span>
+<span class="giallo-l"><span>			target_dir</span><span class="z-l-2 z-d-5">=</span><span>$</span><span>{</span><span>save_dir</span><span>}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		else</span></span>
+<span class="giallo-l"><span>			target_dir</span><span class="z-l-2 z-d-5">=</span><span>$</span><span>{</span><span>save_dir</span><span class="z-l-2 z-d-5">#</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>HOME</span><span class="z-l-5 z-d-7">&quot;</span><span>}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">		fi</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	elif</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>type</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> ==</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">dir</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span>		local_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>{</span><span>local_dir</span><span>}</span><span class="z-l-5 z-d-7">/</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span>		target_dir</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>{</span><span>content_dir</span><span class="z-l-2 z-d-5">#</span><span class="z-l-5 z-d-7">&quot;</span><span>$</span><span>HOME</span><span class="z-l-5 z-d-7">&quot;</span><span>}</span><span class="z-l-5 z-d-7">/</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	fi</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">	rclone</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">v</span><span class="z-l-5 z-d-7"> copy</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-transfers</span><span> $</span><span>{</span><span>rclone_parallel</span><span>}</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-log-file</span><span class="z-l-5 z-d-7">  &quot;</span><span>$</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">/qbauto_copy.log</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">	&quot;</span><span>$</span><span>{</span><span>local_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>rclone_dest</span><span>}</span><span class="z-l-5 z-d-7">:</span><span>$</span><span>{</span><span>target_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-15 z-d-13"> \</span></span>
+<span class="giallo-l"><span class="z-l-5 z-d-7">	-</span><span class="z-l-5 z-d-7">-local-encoding</span><span class="z-l-5 z-d-7"> None</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-onedrive-encoding</span><span class="z-l-5 z-d-7"> None</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>torrent_type</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> ==</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">ani-rss</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		alist_refresh</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">/Media/Bangumi</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		alist_refresh</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>target_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		sleep</span><span class="z-l-16 z-d-16"> 150</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		emby_refresh</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	fi</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">function</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> qb_uploaded</span><span class="z-l-8 z-d-4">(</span><span class="z-l-8 z-d-4">)</span><span class="z-l-8 z-d-4">{</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	if</span><span class="z-l-8 z-d-4"> [</span><span> $</span><span>{</span><span>qb_v</span><span>}</span><span class="z-l-2 z-d-5"> ==</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">1</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">X</span><span class="z-l-5 z-d-7"> POST</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">d</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">hashes=</span><span>$</span><span>{</span><span>torrent_hash</span><span>}</span><span class="z-l-5 z-d-7">&amp;tags=</span><span>$</span><span>{</span><span>uploaded_flag</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span class="z-l-5 z-d-7">/api/v2/torrents/addTags</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-cookie</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	elif</span><span class="z-l-8 z-d-4"> [</span><span> $</span><span>{</span><span>qb_v</span><span>}</span><span class="z-l-2 z-d-5"> ==</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">2</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	then</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">		curl</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">X</span><span class="z-l-5 z-d-7"> POST</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">d</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">hashes=</span><span>$</span><span>{</span><span>torrent_hash</span><span>}</span><span class="z-l-5 z-d-7">&amp;category=</span><span>$</span><span>{</span><span>uploaded_flag</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>qb_web_url</span><span>}</span><span class="z-l-5 z-d-7">/command/setCategory</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">-cookie</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	else</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">		echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">qb_v=</span><span>$</span><span>{</span><span>qb_v</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">	fi</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">}</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">if</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-2 z-d-5"> -f</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">then</span></span>
+<span class="giallo-l"><span>   type</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">file</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">elif</span><span class="z-l-8 z-d-4"> [</span><span class="z-l-2 z-d-5"> -d</span><span class="z-l-5 z-d-7"> &quot;</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4"> ]</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">then</span><span> </span></span>
+<span class="giallo-l"><span>   type</span><span class="z-l-2 z-d-5">=</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">dir</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">else</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">   echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] 未知类型，取消上传</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">fi</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">[</span><span class="z-l-8 z-d-4">$(</span><span class="z-l-3 z-l-i z-d-2 z-d-i">date</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">+%Y-%m-%d %H:%M:%S</span><span class="z-l-5 z-d-7">&#39;</span><span class="z-l-8 z-d-4">)</span><span class="z-l-5 z-d-7">] 类型：</span><span>$</span><span>{</span><span>type</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">rclone_copy</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">qb_login</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">qb_uploaded</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">种子名称：</span><span>$</span><span>{</span><span>torrent_name</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">内容路径：</span><span>$</span><span>{</span><span>content_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">根目录：</span><span>$</span><span>{</span><span>root_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">保存路径：</span><span>$</span><span>{</span><span>save_dir</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">文件数：</span><span>$</span><span>{</span><span>files_num</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">文件大小：</span><span>$</span><span>{</span><span>torrent_size</span><span>}</span><span class="z-l-5 z-d-7">Bytes</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">HASH:</span><span>$</span><span>{</span><span>torrent_hash</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">Cookie:</span><span>$</span><span>{</span><span>cookie</span><span>}</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span>
+<span class="giallo-l"><span class="z-l-10 z-l-i z-d-12 z-d-i">echo</span><span class="z-l-5 z-d-7"> -</span><span class="z-l-5 z-d-7">e</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">-------------------------------------------------------------\n</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-2 z-d-5"> &gt;&gt;</span><span> $</span><span>{</span><span>log_dir</span><span>}</span><span class="z-l-5 z-d-7">/qb.log</span></span></code></pre>
+</details>
+<p>说明：</p>
+<ul>
+<li>默认情况下，保存路径为 <code>/root/path/to/torrent</code> 的种子，上传到网盘的路径为 <code>/path/to/torrent</code>，也就是会把 <code>/root</code> 部分删除。可以按需修改 <code>rclone_copy</code> 函数。</li>
+</ul>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">chmod</span><span class="z-l-5 z-d-7"> +x</span><span class="z-l-5 z-d-7"> qb_auto.sh</span></span></code></pre>
+<hr />
+<h3 id="autobangumi">AutoBangumi<a class="zola-anchor" href="#autobangumi" aria-label="Anchor link for: autobangumi" style="visibility: hidden;"></a>
+</h3>
+<p>建议使用 <a href="https://uchout.moe/posts/bangumi-auto/#Ani-rss">Ani-rss</a></p>
+<ul>
+<li>Rss 获取番剧资源，推送到 <a href="https://uchout.moe/posts/bangumi-auto/#qBittorrent">qBittorrent</a> 进行下载</li>
+<li>自动化番剧重命名，便于 emby 刮削。</li>
+</ul>
+<p>官方地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.autobangumi.org">https://www.autobangumi.org</a></p>
+<p>安装和初始配置官方教程很详细，这里不赘述。</p>
+<p><strong>注意：</strong></p>
+<ul>
+<li>在「番剧管理设置」里，将「添加组标签」勾选。</li>
+<li>「重命名间隔」设置为 5</li>
+</ul>
+<hr />
+<h3 id="ani-rss">Ani-rss<a class="zola-anchor" href="#ani-rss" aria-label="Anchor link for: ani-rss" style="visibility: hidden;"></a>
+</h3>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://docs.wushuo.top/">官方文档</a>很详细，直接照着部署就行，建议通过 docker 部署，记得路径映射正确，不然 Alist 无法上传。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="yaml"><span class="giallo-l"><span class="z-l-3 z-d-2">s</span><span class="z-l-3 z-d-2">ervices</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">  a</span><span class="z-l-3 z-d-2">ni-rss</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    c</span><span class="z-l-3 z-d-2">ontainer_name</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> a</span><span class="z-l-5 z-d-7">ni-rss</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    v</span><span class="z-l-3 z-d-2">olumes</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">root/docker/ani/config:/config</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">root/Media:/root/Media</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    p</span><span class="z-l-3 z-d-2">orts</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> 7</span><span class="z-l-5 z-d-7">789:7789</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    e</span><span class="z-l-3 z-d-2">nvironment</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> P</span><span class="z-l-5 z-d-7">ORT=7789</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> C</span><span class="z-l-5 z-d-7">ONFIG=/config</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> T</span><span class="z-l-5 z-d-7">Z=Asia/Shanghai</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    r</span><span class="z-l-3 z-d-2">estart</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> a</span><span class="z-l-5 z-d-7">lways</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    i</span><span class="z-l-3 z-d-2">mage</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> w</span><span class="z-l-5 z-d-7">ushuo894/ani-rss</span></span></code></pre><h3 id="autosymlink">AutoSymlink<a class="zola-anchor" href="#autosymlink" aria-label="Anchor link for: autosymlink" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>对挂载文件添加 symlink 软链接，加快扫盘速度。</li>
+<li>方便保存元数据，加快读取。</li>
+</ul>
+<p>项目地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/shenxianmq/Auto_Symlink">GitHub</a></p>
+<h4 id="an-zhuang-2">安装<a class="zola-anchor" href="#an-zhuang-2" aria-label="Anchor link for: an-zhuang-2" style="visibility: hidden;"></a>
+</h4>
+<p>这里采用 <code>docker-compose</code> 安装。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">mkdir</span><span class="z-l-5 z-d-7"> symlink</span><span class="z-l-8 z-d-4"> &amp;&amp;</span><span class="z-l-10 z-l-i z-d-12 z-d-i"> cd</span><span class="z-l-5 z-d-7"> symlink</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">mkdir</span><span class="z-l-5 z-d-7"> config</span></span></code></pre>
+<p>创建 <code>docker-compose.yml</code> 配置文件，粘贴以下内容，并根据情况修改。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="yaml"><span class="giallo-l"><span class="z-l-3 z-d-2">v</span><span class="z-l-3 z-d-2">ersion</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> &#39;</span><span class="z-l-5 z-d-7">3</span><span class="z-l-5 z-d-7">&#39;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">s</span><span class="z-l-3 z-d-2">ervices</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">  a</span><span class="z-l-3 z-d-2">uto_symlink</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    i</span><span class="z-l-3 z-d-2">mage</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> s</span><span class="z-l-5 z-d-7">henxianmq/auto_symlink:latest</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    c</span><span class="z-l-3 z-d-2">ontainer_name</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> a</span><span class="z-l-5 z-d-7">uto_symlink</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    e</span><span class="z-l-3 z-d-2">nvironment</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> T</span><span class="z-l-5 z-d-7">Z=Asia/Shanghai</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    v</span><span class="z-l-3 z-d-2">olumes</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">mnt/alist:/mnt/alist:rslave</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 挂载目录</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">media:/media</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> emby扫描媒体目录</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> .</span><span class="z-l-5 z-d-7">/config:/app/config</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    p</span><span class="z-l-3 z-d-2">orts</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">8095:8095</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    u</span><span class="z-l-3 z-d-2">ser</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">0:0</span><span class="z-l-5 z-d-7">&quot;</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    r</span><span class="z-l-3 z-d-2">estart</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> u</span><span class="z-l-5 z-d-7">nless-stopped</span></span></code></pre><h4 id="pei-zhi-1">配置<a class="zola-anchor" href="#pei-zhi-1" aria-label="Anchor link for: pei-zhi-1" style="visibility: hidden;"></a>
+</h4>
+<p>访问对应端口进行网页配置，点左侧「添加任务」。示例配置如下：</p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/1.png" alt="" /></p>
+<p><img src="https://uchout.moe/posts/bangumi-auto/2.png" alt="" /></p>
+<p>说明：</p>
+<ul>
+<li><strong>媒体目录</strong>即挂载的路径。<strong>本地目录</strong>即 symlink 文件及元数据存放目录。</li>
+<li>模式全部选本地。</li>
+<li>同步时间以秒为单位，推荐设定：3600。如果是固定不同的媒体资源而不是新番资源，推荐关闭自动同步。
+此时正确配置后，原本挂载路径 <code>/mnt/alist/Bangumi</code> 中的媒体资源，会通过软链接到 <code>/media/Bangumi</code></li>
+</ul>
+<hr />
+<h3 id="emby">emby<a class="zola-anchor" href="#emby" aria-label="Anchor link for: emby" style="visibility: hidden;"></a>
+</h3>
+<ul>
+<li>媒体库，能获取弹弹 play 上的弹幕。</li>
+<li>支持外链播放。</li>
+</ul>
+<h4 id="an-zhuang-3">安装<a class="zola-anchor" href="#an-zhuang-3" aria-label="Anchor link for: an-zhuang-3" style="visibility: hidden;"></a>
+</h4>
+<p>emby 媒体库搭建，用 <a rel="noopener nofollow noreferrer external" target="_blank" href="https://hub.docker.com/r/amilys/embyserver">amilys</a> 的魔改版。这里采用 docker-compose 安装。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">mkdir</span><span class="z-l-5 z-d-7"> emby</span><span class="z-l-8 z-d-4"> &amp;&amp;</span><span class="z-l-10 z-l-i z-d-12 z-d-i"> cd</span><span class="z-l-5 z-d-7"> emby</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">mkdir</span><span class="z-l-5 z-d-7"> config</span><span> </span></span></code></pre>
+<p>创建 <code>docker-compose.yml</code> 文件，将以下内容按需修改后复制。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="yaml"><span class="giallo-l"><span class="z-l-3 z-d-2">s</span><span class="z-l-3 z-d-2">ervices</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">  e</span><span class="z-l-3 z-d-2">mby-server</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    i</span><span class="z-l-3 z-d-2">mage</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> a</span><span class="z-l-5 z-d-7">milys/embyserver</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    c</span><span class="z-l-3 z-d-2">ontainer_name</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> e</span><span class="z-l-5 z-d-7">mby-local</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    n</span><span class="z-l-3 z-d-2">etwork_mode</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> b</span><span class="z-l-5 z-d-7">ridge</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> DLNA and Wake-on-Lan需要bridge</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    e</span><span class="z-l-3 z-d-2">nvironment</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> U</span><span class="z-l-5 z-d-7">ID=0</span><span> </span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> G</span><span class="z-l-5 z-d-7">ID=0</span><span> </span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> G</span><span class="z-l-5 z-d-7">IDLIST=0</span><span> </span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> T</span><span class="z-l-5 z-d-7">Z=Asia/Shanghai</span><span> </span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    d</span><span class="z-l-3 z-d-2">evices</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">dev/dri:/dev/dri</span><span class="z-l-8 z-l-i z-d-4 z-d-i">             #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 将主机的 /dev/dri 设备挂载到容器 开启硬解</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    p</span><span class="z-l-3 z-d-2">orts</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> 8</span><span class="z-l-5 z-d-7">096:8096</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 对外访问端口</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    r</span><span class="z-l-3 z-d-2">estart</span><span class="z-l-2 z-d-5">:</span><span class="z-l-5 z-d-7"> u</span><span class="z-l-5 z-d-7">nless-stopped</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    p</span><span class="z-l-3 z-d-2">rivileged</span><span class="z-l-2 z-d-5">:</span><span class="z-l-16 z-d-16"> true</span></span>
+<span class="giallo-l"><span class="z-l-3 z-d-2">    v</span><span class="z-l-3 z-d-2">olumes</span><span class="z-l-2 z-d-5">:</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> .</span><span class="z-l-5 z-d-7">/config:/config</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">      -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">mnt/alist:/mnt/alist:shared</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 这个路径直接读取挂载文件</span></span>
+<span class="giallo-l"><span class="z-l-8 z-d-4">	  -</span><span class="z-l-5 z-d-7"> /</span><span class="z-l-5 z-d-7">media:/media:shared</span><span class="z-l-8 z-l-i z-d-4 z-d-i">         #</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 这个路径是 symlink 软链接路径</span></span></code></pre><h4 id="pei-zhi-2">配置<a class="zola-anchor" href="#pei-zhi-2" aria-label="Anchor link for: pei-zhi-2" style="visibility: hidden;"></a>
+</h4>
+<p><img src="https://uchout.moe/posts/bangumi-auto/3.png" alt="" /></p>
+<p>注意：</p>
+<ul>
+<li>访问网页完成基础配置后，重启 embyserver 后，能在 <code>./config/config</code> 路径下找到 <code>ext.sh</code> 脚本，按照脚本中的注释进行配置，即可开始弹幕等功能。</li>
+<li>媒体库路径填通过 <a href="https://uchout.moe/posts/bangumi-auto/#AutoSymlink">AutoSymlink</a> 获取的 symlink 路径。这里是 <code>/media</code></li>
+<li>刮削器建议只选 <code>theMovieDB</code>，皮实够用。</li>
+</ul>
+<hr />
+<h3 id="emby2alist">emby2Alist<a class="zola-anchor" href="#emby2alist" aria-label="Anchor link for: emby2alist" style="visibility: hidden;"></a>
+</h3>
+<p>项目地址：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/bpking1/embyExternalUrl">GitHub</a></p>
+<p>另外 emby 内的外链播放也是这个项目的，赞👍</p>
+<blockquote>
+<p>将阿里盘及别的网盘的文件转为直链,使用 nginx 及其 njs 模块将 emby 视频播放地址劫持到 alist 直链</p>
+</blockquote>
+<p>此外还有一个类似的项目：<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/AmbitiousJun/go-emby2alist">GO-emby2Alist</a>，没有测试过。</p>
+<h4 id="an-zhuang-4">安装<a class="zola-anchor" href="#an-zhuang-4" aria-label="Anchor link for: an-zhuang-4" style="visibility: hidden;"></a>
+</h4>
+<p>确保本地有 Nginx，以及 njs 模块。</p>
+<p>下载项目源码到本地，解压提取，我们只需要用到 <code>/emby2Alist/nginx/conf.d</code> 这个文件夹。将这个文件夹移动到 Nginx 配置目录。</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="shellscript"><span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">wget</span><span class="z-l-5 z-d-7"> https://github.com/bpking1/embyExternalUrl/archive/refs/tags/v0.4.6.zip</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">unzip</span><span class="z-l-5 z-d-7"> v0.4.6.zip</span><span class="z-l-8 z-d-4"> &amp;&amp;</span><span class="z-l-3 z-l-i z-d-2 z-d-i"> rm</span><span class="z-l-5 z-d-7"> v0.4.6.zip</span></span>
+<span class="giallo-l"><span class="z-l-3 z-l-i z-d-2 z-d-i">mv</span><span class="z-l-5 z-d-7"> ./embyExternalUrl-0.4.6/emby2Alist/nginx/conf.d</span><span class="z-l-5 z-d-7"> /etc/nginx/</span></span></code></pre><h4 id="pei-zhi-3">配置<a class="zola-anchor" href="#pei-zhi-3" aria-label="Anchor link for: pei-zhi-3" style="visibility: hidden;"></a>
+</h4>
+<ol>
+<li>修改 <code>conf.d/constant.js</code> 文件</li>
+</ol>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="javascript"><span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 这里默认 emby/jellyfin 的地址是宿主机,要注意 iptables 给容器放行端口</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> embyHost</span><span class="z-l-2 z-d-5"> =</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">http://localhost:8096</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> emby/jellyfin api key, 在 emby/jellyfin 后台设置</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> embyApiKey</span><span class="z-l-2 z-d-5"> =</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">39bbbeaxxxxxxxxx5b0</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 挂载工具 rclone/CD2 多出来的挂载目录, 例如将 od,gd 挂载到 /mnt 目录下: /mnt/onedrive /mnt/gd ,那么这里就填写 /mnt</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 通常配置一个远程挂载根路径就够了,默认非此路径开头文件将转给原始 emby 处理</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 如果没有挂载,全部使用 strm 文件,此项填[&quot;&quot;],必须要是数组</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> mediaMountPath</span><span class="z-l-2 z-d-5"> =</span><span> [</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-5 z-d-7">&quot;</span><span>]</span><span class="z-l-8 z-d-4">;</span></span></code></pre>
+<ul>
+<li>本文采用 symlink 软链接 （如果用 strm，也一样），确保 <code>mediaMountPath</code> 的值为空。</li>
+</ul>
+<ol start="2">
+<li>修改 <code>conf.d/config/constant-mount.js</code></li>
+</ol>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="javascript"><span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 访问宿主机上 5244 端口的 alist 地址, 要注意 iptables 给容器放行端口</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> alistAddr</span><span class="z-l-2 z-d-5"> =</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">http://localhost:5244</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> alist token, 在 alist 后台查看 alist 令牌</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> alistToken</span><span class="z-l-2 z-d-5"> =</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">alist-xxxx</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> alist 是否启用了 sign</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> alistSignEnable</span><span class="z-l-2 z-d-5"> =</span><span class="z-l-16 z-d-16"> false</span><span class="z-l-8 z-d-4">;</span></span>
+<span class="giallo-l"></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> alist 中设置的直链过期时间,以小时为单位,严格对照 alist 设置 =&gt; 全局 =&gt; 直链有效期</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> alistSignExpireTime</span><span class="z-l-2 z-d-5"> =</span><span class="z-l-16 z-d-16"> 0</span><span class="z-l-8 z-d-4">;</span></span></code></pre>
+<ol start="3">
+<li>修改 <code>conf.d/config/constant-pro.js</code></li>
+</ol>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="javascript"><span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 路径映射,会在 mediaMountPath 之后从上到下依次全部替换一遍,不要有重叠,注意 /mnt 会先被移除掉了</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 参数?.1: 生效规则三维数组,有时下列参数序号加一,优先级在参数2之后,需同时满足,多个组是或关系(任一匹配)</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 参数1: 0: 默认做字符串替换 replace 一次, 1: 前插, 2: 尾插, 3: replaceAll 替换全部</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 参数2: 0: 默认只处理本地路径且不为 strm, 1: 只处理 strm 内部为/开头的相对路径, 2: 只处理 strm 内部为远程链接的, 3: 全部处理</span></span>
+<span class="giallo-l"><span class="z-l-8 z-l-i z-d-4 z-d-i">//</span><span class="z-l-8 z-l-i z-d-4 z-d-i"> 参数3: 来源, 参数4: 目标</span></span>
+<span class="giallo-l"><span class="z-l-9 z-d-9">const</span><span> mediaPathMapping</span><span class="z-l-2 z-d-5"> =</span><span> [</span></span>
+<span class="giallo-l"><span>     [</span><span class="z-l-16 z-d-16">0</span><span class="z-l-8 z-d-4">,</span><span class="z-l-16 z-d-16"> 0</span><span class="z-l-8 z-d-4">,</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">/media</span><span class="z-l-5 z-d-7">&quot;</span><span class="z-l-8 z-d-4">,</span><span class="z-l-5 z-d-7"> &quot;</span><span class="z-l-5 z-d-7">&quot;</span><span>]</span></span>
+<span class="giallo-l"><span>]</span></span></code></pre>
+<p>注意：</p>
+<ul>
+<li><code>/media</code> 为 symlink 软链接存放的地址，如果采用 strm，这里填写 <code>[0, 1, "/mnt/alist", ""]</code> , 其中 <code>/mnt/alist</code> 是挂载路径相对于 alist 路径多出来的部分。如同样的 Bangumi 文件夹，在 Alist 中的路径为 <code>https://yourdomain.com/Bangumi</code> , 在挂载中的路径为 <code>/mnt/alist/Bangumi</code>。</li>
+</ul>
+<p>完成后重载 Nginx 配置，就能正常工作了。访问 8091 端口，就能访问直链劫持 Alist 的 emby 媒体库了。</p>
+<h2 id="can-kao">参考<a class="zola-anchor" href="#can-kao" aria-label="Anchor link for: can-kao" style="visibility: hidden;"></a>
+</h2>
+<p>https://linux.do/t/topic/259509</p>
+
+      </article>
+
+      
+      
+
+      
+      
+    </div>
+
+    
+
+  
+  
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+      <span>|</span>
+      <a href="https://creativecommons.org/licenses/by/4.0/" rel="license noreferrer" target="_blank">CC BY 4.0</a>
+    </div>
+  </div>
+
+  <div class="right">
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml" aria-label="RSS" title="RSS"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M3 3C12.9411 3 21 11.0589 21 21H18C18 12.7157 11.2843 6 3 6V3ZM3 10C9.07513 10 14 14.9249 14 21H11C11 16.5817 7.41828 13 3 13V10ZM3 17C5.20914 17 7 18.7909 7 21H3V17Z" fill="currentColor"></path></svg>
+</a>
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https://uchout.moe/posts/feed.xml">https://uchout.moe/posts/feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https://uchout.moe/posts/feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+  </main>
+</div>
+
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

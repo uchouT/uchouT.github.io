@@ -1,0 +1,658 @@
+
+<!DOCTYPE html>
+
+<html lang="zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  
+    
+  <meta name="description" content="Bringing USB redirection to qemu-rdp: implementing MS-RDPEUSB in IronRDP and bridging it to QEMU&#39;s usbredir.">
+<link rel="canonical" href="https://uchout.moe/posts/gsoc-2026-final/">
+<meta property="og:site_name" content="uchouT&#39;s Gensokyo">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GSoC 2026 final report">
+<meta property="og:description" content="Bringing USB redirection to qemu-rdp: implementing MS-RDPEUSB in IronRDP and bridging it to QEMU&#39;s usbredir.">
+<meta property="og:url" content="https://uchout.moe/posts/gsoc-2026-final/">
+<meta property="og:locale" content="zh">
+
+
+<meta property="article:published_time" content="2026-08-21">
+
+<meta property="article:tag" content="rust">
+<meta property="article:tag" content="programming">
+<meta property="article:tag" content="gsoc-2026">
+<meta property="article:tag" content="qemu">
+<meta property="article:tag" content="rdp">
+
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GSoC 2026 final report">
+<meta name="twitter:description" content="Bringing USB redirection to qemu-rdp: implementing MS-RDPEUSB in IronRDP and bridging it to QEMU&#39;s usbredir.">
+
+
+
+  <title>GSoC 2026 final report</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.jsdmirror.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdmirror.com/npm/@wc1font/lxgw-wen-kai-screen/font.css">
+<style>
+  /* Crimson Text, declared here instead of via a google-fonts stylesheet so we
+     can apply size-adjust.
+
+     Crimson Text has a small x-height (0.427em) compared to LXGW WenKai's own
+     latin glyphs (0.508em), so latin text renders visibly smaller than the
+     chinese around it. 115% sits between matching x-height (119%) and matching
+     cap-height (112%). Tune it here; it does not affect the chinese font.
+
+     jsDelivr first, gstatic as a fallback if it ever fails to load. */
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfbwhT.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-ext-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfYQhTM_I.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: "Crimson Text", "LXGW WenKai Screen", ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 1.1em;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+  /* smaller font on mobile (desktop is 1.1em, set above) */
+  @media (max-width: 768px) {
+    body {
+      --font-size: 1em;
+    }
+  }
+
+  /* footer rss button, icon instead of text */
+  body footer .right #rss-btn {
+    padding: 4px;
+    line-height: 0;
+  }
+  body footer .right #rss-btn svg {
+    scale: 0.7;
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+
+<link id="hl" rel="stylesheet" type="text/css" href="/giallo-light.css" />
+
+
+
+
+
+
+  
+</head>
+
+<body class="post">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  <div id="blank"></div>
+  <aside>
+    
+    
+    <nav>
+      <ul>
+        
+        <li>
+          <a class="h2" href="#overview">Overview</a>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#my-work">My Work</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#decoupling-qemu-display-s-usbredir-manager">Decoupling qemu-display&#39;s usbredir manager</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#refactoring-ironrdp-dvc">Refactoring ironrdp-dvc</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#ironrdp-rdpeusb-pdu-codec">ironrdp-rdpeusb PDU codec</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#urbdrc-state-machine">URBDRC state machine</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#getting-it-working-first">Getting it working first</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#usb-model">USB model</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#rebuilding-the-qemu-rdp-bridge">Rebuilding the qemu-rdp bridge</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#future-work">Future Work</a>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#thoughts">Thoughts</a>
+          
+          <ul>
+            
+            <li>
+              <a class="h3" href="#data-matters-a-lot">Data matters a lot</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#deciding-what-not-to-do">Deciding what not to do</a>
+            </li>
+            
+            <li>
+              <a class="h3" href="#communication-in-open-source">Communication in open source</a>
+            </li>
+            
+          </ul>
+          
+        </li>
+        
+        <li>
+          <a class="h2" href="#thanks">Thanks</a>
+          
+        </li>
+        
+      </ul>
+    </nav>
+    
+    
+    <button id="back-to-top" aria-label="back to top">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-arrow-up"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+
+    </button>
+    
+  </aside>
+  <main>
+    
+<header>
+  <nav>
+    <a id="back-link" href="https://uchout.moe/posts">← Return</a>
+  </nav>
+</header>
+
+
+    <div>
+      
+      
+      
+      
+      <div id="copy-cfg" style="display: none;" data-copy-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+"></div>
+      
+      <article class="prose">
+        <h1>GSoC 2026 final report</h1>
+        
+        <div id="post-info">
+          <div id="date">
+            <span id="publish">Aug 21, 2026</span>
+            </div>
+
+          
+          <div id="tags">
+            <a class="instant" href="https://uchout.moe/tags/rust/"><span>#</span>rust</a><a class="instant" href="https://uchout.moe/tags/programming/"><span>#</span>programming</a><a class="instant" href="https://uchout.moe/tags/gsoc-2026/"><span>#</span>gsoc-2026</a><a class="instant" href="https://uchout.moe/tags/qemu/"><span>#</span>qemu</a><a class="instant" href="https://uchout.moe/tags/rdp/"><span>#</span>rdp</a>
+          </div>
+          
+        </div>
+
+        
+        
+
+        
+
+        <h2 id="overview">Overview<a class="zola-anchor" href="#overview" aria-label="Anchor link for: overview" style="visibility: hidden;"></a>
+</h2>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://wiki.qemu.org/Internships/ProjectIdeas/RDPUSB">original idea</a></p>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://summerofcode.withgoogle.com/programs/2026/projects/ssoc2JtG">My project</a>
+this summer is to implement USB redirection for <a rel="noopener nofollow noreferrer external" target="_blank" href="https://gitlab.com/marcandre.lureau/qemu-display/-/tree/master/qemu-rdp">qemu-rdp</a>. qemu-rdp is an <a rel="noopener nofollow noreferrer external" target="_blank" href="https://en.wikipedia.org/wiki/Remote_Desktop_Protocol">RDP</a>
+server for the <code>org.qemu.Display1</code> D-Bus interface that <a rel="noopener nofollow noreferrer external" target="_blank" href="https://qemu.org">QEMU</a> exposes with
+<code>-display dbus</code>. It runs as its own process, outside of QEMU, and turns a
+virtual machine into a remote desktop that speaks a protocol every platform
+already has a client for. It could already carry display, input, audio and
+clipboard, but not a USB device.</p>
+<p>And my work aims to close that gap. USB redirection feels like plugging a local
+USB device into a remote QEMU machine over the network.</p>
+<p>RDP carries everything beyond the core desktop over <em>dynamic virtual channels</em>,
+multiplexed by a static <code>DRDYNVC</code> channel (<a rel="noopener nofollow noreferrer external" target="_blank" href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpedyc/3bd53020-9b64-4c9a-97fc-90a79e7e1e06">MS-RDPEDYC</a>). <a rel="noopener nofollow noreferrer external" target="_blank" href="https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpeusb/a1004d0e-99e9-4968-894b-0b924ef2f125">MS-RDPEUSB</a> defines
+one named <code>URBDRC</code> for USB. What it carries is deliberately low level: <strong>URBs</strong>,
+raw USB Request Blocks, so a device works without any code written for its
+class.</p>
+<p>QEMU, meanwhile, already speaks <a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.spice-space.org/usbredir.html">usbredir</a>, the protocol SPICE has used for USB
+pass-through for years. <code>-device usb-redir</code> gives the guest an emulated port
+and exposes the other end as a chardev, which QEMU offers over the same
+<code>org.qemu.Display1</code> D-Bus interface. That chardev is qemu-rdp's way in.</p>
+<p>So the project is a bridge. qemu-rdp plays the usbredir host, except it owns no
+device: each request from QEMU becomes a URB sent over <code>URBDRC</code> to the RDP
+client, and completes when the answer comes back.</p>
+<pre class="giallo z-l-code z-d-code" ><code data-lang="plain"><span class="giallo-l"><span>[physical USB] → RDP client → URBDRC over DRDYNVC → qemu-rdp → usbredir → QEMU → [guest]</span></span></code></pre><h2 id="my-work">My Work<a class="zola-anchor" href="#my-work" aria-label="Anchor link for: my-work" style="visibility: hidden;"></a>
+</h2>
+<p>All my work can be found in these repos:</p>
+<blockquote>
+<p>my info: @uchouT <a href="mailto:i@uchout.moe">i@uchout.moe</a></p>
+</blockquote>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://gitlab.com/marcandre.lureau/qemu-display/-/tree/master/qemu-rdp">qemu-rdp</a> - the RDP server that exports a QEMU virtual machine. I wrote the
+USB redirection backend here, bridging <code>URBDRC</code> to usbredir.</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP">IronRDP</a> - the Rust RDP stack qemu-rdp is built on. The MS-RDPEUSB
+implementation lives here, along with the dynamic virtual channel work it
+needed.</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/FreeRDP/FreeRDP">FreeRDP</a> - the widely used C implementation of RDP, and the client I tested
+against. A few <code>urbdrc</code> bug fixes.</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://gitlab.com/qemu-project/qemu">QEMU</a> - just a documentation fix for the D-Bus chardev.</li>
+</ul>
+<p>I'll pick some highlights from my GSoC project below.</p>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://youtu.be/0Pqclo0T26Q">demo video</a>. (Bad oral English warnings!)</p>
+<h3 id="decoupling-qemu-display-s-usbredir-manager">Decoupling <code>qemu-display</code>'s usbredir manager<a class="zola-anchor" href="#decoupling-qemu-display-s-usbredir-manager" aria-label="Anchor link for: decoupling-qemu-display-s-usbredir-manager" style="visibility: hidden;"></a>
+</h3>
+<p>qemu-display could already redirect a USB device to QEMU, but only a local
+physical one. Its <code>usbredir</code> module did not merely use <code>usbredirhost</code> — it
+<em>was</em> the usbredirhost session: a <code>DeviceHandler</code> implementation with its own
+<code>Drop</code> and raw file-descriptor polling, keyed by USB bus and device address.
+<code>qemu_display::Error</code> carried <code>Rusb</code> and <code>Usbredir</code> variants, so every consumer
+of the crate depended on libusb, and <code>Display::usbredir()</code> handed back a
+manager with nothing to substitute.</p>
+<p>qemu-rdp has no local device to give it. Its device lives behind the RDP
+connection, and is driven by the client rather than by usbredirhost. But the
+part it does need was already written: finding a free chardev, creating the
+socket pair, registering one end over D-Bus, and tracking the live sessions and
+the free-channel count.</p>
+<p>So I separated them. A <code>UsbRedirBackend</code> trait and a generic <code>UsbRedir&lt;B&gt;</code> keep
+the chardev orchestration in qemu-display; the usbredirhost session moved out
+to qemu-rdw, where it belongs; the rusb error variants left <code>qemu_display:: Error</code>; and <code>Display::usbredir()</code> became <code>usbredir_chardevs()</code> plus explicit
+backend injection.</p>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://gitlab.com/marcandre.lureau/qemu-display/-/merge_requests/8">qemu-display!8</a> - decouple the usbredir channel manager from the host
+backend</li>
+</ul>
+<h3 id="refactoring-ironrdp-dvc">Refactoring <code>ironrdp-dvc</code><a class="zola-anchor" href="#refactoring-ironrdp-dvc" aria-label="Anchor link for: refactoring-ironrdp-dvc" style="visibility: hidden;"></a>
+</h3>
+<p>URBDRC asks more of the DVC layer than any channel before it. Channels have to
+be created and closed at runtime, and every instance shares one name — a
+control channel plus one channel per redirected device, told apart only by the
+ID <code>DRDYNVC</code> assigns them. <code>ironrdp-dvc</code> could do neither: channels were
+registered once at build time, and the registry was keyed by name, so a second
+<code>URBDRC</code> would have overwritten the first. It took several PRs to get there.</p>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1142">IronRDP#1142</a> - <code>DvcChannelListener</code>, so one name can produce many
+processors</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1302">IronRDP#1302</a> - closing a channel from either side</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1368">IronRDP#1368</a>, <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1377">IronRDP#1377</a> - typed accessors, so a caller recovers a
+processor together with its channel ID and the wrapper types stay private</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1416">IronRDP#1416</a> - reserve the ID before building the processor, so the
+processor can use it while initializing</li>
+</ul>
+<p>The first of those came out of a design argument I am glad I made.
+<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/issues/1135">IronRDP#1135</a> arrived with
+a plan already sketched, and the plan was to let the DVC layer do the work: a
+protocol processor would queue up the channels it wanted, and the layer beneath
+would notice and open them on its next pass. It would have worked for USB
+redirection. I argued against it anyway.</p>
+<p>Two things were wrong with it. That layer only wakes up when the client sends
+something, so channels could only ever be opened in reaction to the client —
+while RDPEDYC is clear that the server is the side that opens them. And it asked
+a layer whose whole job is to speak RDPEDYC to also understand <em>why</em> a channel
+was wanted, a question only the protocol above it can answer. Convenient for USB
+redirection, useless to anything else, and paid for out of the layering.</p>
+<p>What I proposed instead was that the DVC layer simply offer a way to create a
+channel and know nothing about who asked or why, leaving that decision to the
+layer that actually has the context.</p>
+<h3 id="ironrdp-rdpeusb-pdu-codec"><code>ironrdp-rdpeusb</code> PDU codec<a class="zola-anchor" href="#ironrdp-rdpeusb-pdu-codec" aria-label="Anchor link for: ironrdp-rdpeusb-pdu-codec" style="visibility: hidden;"></a>
+</h3>
+<p><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1165">IronRDP#1165</a> had left a PDU
+skeleton in place, and I finished the codec on top of it. The idea running
+through these PRs is to let the type system carry that context, so an invalid
+state is not merely rejected at runtime but impossible to build.</p>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1294">IronRDP#1294</a> - lift <code>SHARED_MSG_HEADER</code> out of every PDU struct, so callers
+cannot assemble a mismatched header</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1321">IronRDP#1321</a> - split the PDU and <code>TS_URB</code> enum wrappers</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1403">IronRDP#1403</a> - separate raw and validated <code>InternalIoControl</code></li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1456">IronRDP#1456</a> - type the URB completion payloads</li>
+</ul>
+<h3 id="urbdrc-state-machine">URBDRC state machine<a class="zola-anchor" href="#urbdrc-state-machine" aria-label="Anchor link for: urbdrc-state-machine" style="visibility: hidden;"></a>
+</h3>
+<p>Sans-I/O protocol processors for both the server and the client side. This is
+one of the most interesting and challenging part of my GSoC journey :) The
+traits are the seam between the protocol and whatever backend sits behind it,
+so designing them meant working out the whole data flow first.</p>
+<p>Setting up a new device channel is the trickiest part of that flow. When a
+device is plugged in on the client, the client asks the server to open a
+channel for it, and the server does, but what comes back carries nothing except
+a channel ID. To the DVC layer it is just another <code>URBDRC</code> channel,
+indistinguishable from the control channel or from any other device. The client
+still has to announce the device on it with <code>ADD_DEVICE</code>, and <code>ADD_DEVICE</code>
+needs that device's information.</p>
+<p>Nothing in the protocol correlates the two, and the processor cannot do it
+either — it has no way of knowing which device is its own. Only the backend
+knows, because it is the side that asked for the channel in the first place. So
+that became part of the trait: when a new channel appears, the backend is asked
+to hand over the device it has been waiting to redirect, and the device
+information is fetched from it again later, at the moment <code>ADD_DEVICE</code> is
+actually assembled.</p>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1365">IronRDP#1365</a> - the client processors</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1394">IronRDP#1394</a> - the server processors, plus the backend-facing <code>io</code> model
+shared by both sides</li>
+</ul>
+<h3 id="getting-it-working-first">Getting it working first<a class="zola-anchor" href="#getting-it-working-first" aria-label="Anchor link for: getting-it-working-first" style="visibility: hidden;"></a>
+</h3>
+<p>The protocol library was finished, and completely untested against anything
+real. So before polishing it any further I went for an end-to-end prototype:
+wire usbredir into qemu-rdp, redirect one device, and find out whether the
+state machine I had written actually held up.</p>
+<p>qemu-rdp builds on <code>ironrdp-server</code>, so the wiring had to start there. I opened
+<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1417">IronRDP#1417</a> as a draft to
+hold the place, then moved over to qemu-rdp and put usbredir in as fast as I
+could. It worked in the end: FreeRDP connected, and a USB flash drive showed up
+inside the guest. LLMs helped a lot during that push.</p>
+<p>The result was buggy and not something I would want to maintain, but that was
+never the point. The point was to find out what I did not know yet, and it
+delivered:</p>
+<ul>
+<li>a couple of bugs in FreeRDP's own urbdrc client</li>
+<li>a set of edge cases in the Linux USB API that I only cornered by stracing the
+kernel to see what was actually being submitted — an interesting journey in
+itself :)</li>
+<li>USB state management and USB-to-RDPEUSB translation turned out to be far more
+work than I expected, and meanwhile I ran into <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/clintcan/macrdp">macrdp</a>, another RDP server
+built on <code>ironrdp-server</code> that is solving exactly the same problem.</li>
+</ul>
+<p>By the end of that detour I had enough context to see how the work should be
+actuall landed.</p>
+<h3 id="usb-model">USB model<a class="zola-anchor" href="#usb-model" aria-label="Anchor link for: usb-model" style="visibility: hidden;"></a>
+</h3>
+<p>The duplicated part was never really application work. Driving a redirected
+device through the protocol processors alone meant assembling <code>TS_URB</code>
+structures and tracking USB device state by hand, and doing it again in every
+application that wanted to redirect a device. So I split it into three layers,
+each one allowed to speak only its own vocabulary:</p>
+<ul>
+<li><code>ironrdp-usb</code> — USB and nothing else: protocol-independent, <code>no_std</code>,
+sans-I/O, no dependencies. It describes USB operations without executing them,
+and parses only the byte layouts USB itself defines.</li>
+<li><code>ironrdp-rdpeusb::usb</code> — translation. An <code>ironrdp-usb</code> request goes in, a
+complete RDPEUSB packet comes out, so the <code>TS_URB</code> payload, URB function,
+transfer envelope, flags and buffer shape cannot disagree with each other.</li>
+<li><code>ironrdp-server</code> — the facade, and the request lifetime that comes with it:
+request IDs, completion routing, and RAII pending requests that cancel
+themselves on the wire when dropped. A caller never names a <code>TS_URB</code>.</li>
+</ul>
+<p>Above those sits the application. qemu-rdp only has to deal with what usbredir
+itself imposes, and macrdp, or anything else built on IronRDP, gets the same
+three layers for free. The full rationale is in
+<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/discussions/1516">IronRDP#1516</a>.</p>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1682">IronRDP#1682</a> - the new <code>ironrdp-usb</code> crate</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1683">IronRDP#1683</a> - the RDPEUSB translation module</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/pull/1417">IronRDP#1417</a> - the server integration and the device facade</li>
+</ul>
+<h3 id="rebuilding-the-qemu-rdp-bridge">Rebuilding the qemu-rdp bridge<a class="zola-anchor" href="#rebuilding-the-qemu-rdp-bridge" aria-label="Anchor link for: rebuilding-the-qemu-rdp-bridge" style="visibility: hidden;"></a>
+</h3>
+<p>With the three layers in place I went back to qemu-rdp and rewrote the USB side
+on top of them.</p>
+<p>The rewrite splits along the line the layering suggested. <code>session_task</code> is the
+transport half: it frames the QEMU chardev, drives <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/elmarco/usbredir-proto">usbredir-proto</a>'s sans-I/O
+parser, and holds no USB or usbredir state of its own. <code>bridge</code> is everything
+else — capability negotiation, device state, packet translation, and
+correlating each usbredir request with the RDP completion that eventually
+answers it.</p>
+<p>Correlation turned out to be the subtle one. A usbredir request and an RDPEUSB
+request are not the same object and do not end at the same moment, so the piece
+that tracks them in flight tracks only their lifetime; what a request is <em>for</em>
+rides along with it and is never interpreted there. Lifetime and meaning stay
+in different places.</p>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://gitlab.com/marcandre.lureau/qemu-display/-/commits/gsoc-2026-usbredir">gsoc-2026-usbredir</a></li>
+</ul>
+<h2 id="future-work">Future Work<a class="zola-anchor" href="#future-work" aria-label="Anchor link for: future-work" style="visibility: hidden;"></a>
+</h2>
+<ul>
+<li>Land the rest of the IronRDP work. The new crates need a release before
+anything downstream can depend on them.</li>
+<li>Interrupt IN and isochronous transfers in qemu-rdp. Only what a mass-storage
+device needs is wired up today.</li>
+<li>Test against mstsc. FreeRDP has been my only client so far, and the Windows
+one decides what the spec means in practice.</li>
+<li>URBDRC support in <code>ironrdp-client</code>. IronRDP can serve a redirected device,
+but cannot yet redirect one.</li>
+<li>Rebuild rdw-rdp on <code>ironrdp-client</code>, now that it is a library rather than a
+binary — and pick up URBDRC along with it.</li>
+</ul>
+<h2 id="thoughts">Thoughts<a class="zola-anchor" href="#thoughts" aria-label="Anchor link for: thoughts" style="visibility: hidden;"></a>
+</h2>
+<p>Actually, I have a lot to talk about, but to not make this post tedious, I just
+list tl;dr here. More about them may be published in the future, tagged with
+<a href="/tags/gsoc-2026">#gsoc-2026</a>.</p>
+<h3 id="data-matters-a-lot">Data matters a lot<a class="zola-anchor" href="#data-matters-a-lot" aria-label="Anchor link for: data-matters-a-lot" style="visibility: hidden;"></a>
+</h3>
+<p>Data comes first, and code is shaped to fit it. Looking back, most of the time
+I thought I was designing behaviour I was really deciding something else: what
+to store, where it should live, and who is allowed to know it. The hard
+question was never <em>what should this function do</em>, but <em>who holds this piece of
+information, and when</em>.</p>
+<p>With the wrong data, code turns ugly and fills up with hacks. With the right
+data, it comes out simple and elegant.</p>
+<h3 id="deciding-what-not-to-do">Deciding what not to do<a class="zola-anchor" href="#deciding-what-not-to-do" aria-label="Anchor link for: deciding-what-not-to-do" style="visibility: hidden;"></a>
+</h3>
+<p>In <a rel="noopener nofollow noreferrer external" target="_blank" href="https://www.tedinski.com/2018/01/30/the-one-ring-problem-abstraction-and-power.html">The one ring problem: abstraction and our quest for power</a> (I found this
+blog series in IronRDP repo's <code>ARCHITECTURE.md</code>), Ted Kaminski describes how
+programmers are tempted to reach for ever more power in their abstractions. The
+reach is tempting because power arrives as convenience and bills you later.</p>
+<p>Most of the decisions I am happy with this summer were refusals. Again and
+again I was tempted to let a layer learn one small thing about the layer above
+it, because it would have made the case in front of me much easier. Leaving it
+out was never a limitation I ran into; it was a capability I declined to take,
+and it always felt like the long way round.</p>
+<p>What you get back is a boundary the next person can reason about without
+reading your code. The less a layer exposes, the less there is to get wrong.</p>
+<h3 id="communication-in-open-source">Communication in open source<a class="zola-anchor" href="#communication-in-open-source" aria-label="Anchor link for: communication-in-open-source" style="visibility: hidden;"></a>
+</h3>
+<p>In open source, people meet each other through the work itself. IronRDP's
+maintainer <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/CBenoit">@CBenoit</a> reached out on Matrix to say
+he liked my sense of architecture, and later asked for my help on the project's
+LLM harness — something well outside what I had signed up for. None of that
+came from introducing myself well.</p>
+<p>There is a real freedom in that. No pleasantries to perform, no self-packaging
+(I feel really uncomfortable with it!!), no reading the room. You say the
+thing, you show the code, and the work carries exactly the weight it earns.</p>
+<h2 id="thanks">Thanks<a class="zola-anchor" href="#thanks" aria-label="Anchor link for: thanks" style="visibility: hidden;"></a>
+</h2>
+<ul>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/elmarco">Marc-André Lureau</a> - my mentor, who helped
+enormously throughout, needless to say</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP">IronRDP</a> community - for the reviews, and I really learned a lot from it</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/glamberson">glamberson</a> - we had a nice
+<a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/Devolutions/IronRDP/issues/1077#issuecomment-4528328787">discussion</a>
+about where the spec is ambiguous</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/clintcan">clintcan</a> - <a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/clintcan/macrdp">macrdp</a> maintainer, helps me with
+the test, and offers valuable mstsc cases</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://github.com/playbahn">playbahn</a> - who did much of the early work on
+the PDU codec</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://qemu.org">QEMU</a> community - for taking me on as a GSoC org, and for <code>-display dbus</code>
+and usbredir, the two things this whole project stands on</li>
+<li><a rel="noopener nofollow noreferrer external" target="_blank" href="https://summerofcode.withgoogle.com/">Google</a> - for running Summer of Code,
+which is how all of this started</li>
+</ul>
+
+      </article>
+
+      
+      
+
+      
+      
+    </div>
+
+    
+
+  
+  
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+      <span>|</span>
+      <a href="https://creativecommons.org/licenses/by/4.0/" rel="license noreferrer" target="_blank">CC BY 4.0</a>
+    </div>
+  </div>
+
+  <div class="right">
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml" aria-label="RSS" title="RSS"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M3 3C12.9411 3 21 11.0589 21 21H18C18 12.7157 11.2843 6 3 6V3ZM3 10C9.07513 10 14 14.9249 14 21H11C11 16.5817 7.41828 13 3 13V10ZM3 17C5.20914 17 7 18.7909 7 21H3V17Z" fill="currentColor"></path></svg>
+</a>
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https://uchout.moe/posts/feed.xml">https://uchout.moe/posts/feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https://uchout.moe/posts/feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+  </main>
+</div>
+
+
+  
+<script src="/js/lightense.min.js"></script>
+
+
+
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>

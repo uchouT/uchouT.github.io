@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="zh">
+	<title>uchouT&#39;s Gensokyo</title>
+	<subtitle>uchouT 的幻想乡</subtitle>
+	<link rel="self" type="application/atom+xml" href="https://uchout.moe/tags/qemu/feed.xml"/>
+  <link rel="alternate" type="text/html" href="https://uchout.moe"/>
+  
+	<updated>2026-08-21T00:00:00+00:00</updated>
+	
+	<id>https://uchout.moe/tags/qemu/feed.xml</id>
+	<entry xml:lang="zh">
+		<title>GSoC 2026 final report</title>
+		<published>2026-08-21T00:00:00+00:00</published>
+		<updated>2026-08-21T00:00:00+00:00</updated>
+		<link rel="alternate" type="text/html" href="https://uchout.moe/posts/gsoc-2026-final/"/>
+		<id>https://uchout.moe/posts/gsoc-2026-final/</id>
+    
+		<content type="html" xml:base="https://uchout.moe/posts/gsoc-2026-final/">&lt;h2 id=&quot;overview&quot;&gt;Overview&lt;a class=&quot;zola-anchor&quot; href=&quot;#overview&quot; aria-label=&quot;Anchor link for: overview&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;p&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://wiki.qemu.org/Internships/ProjectIdeas/RDPUSB&quot;&gt;original idea&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://summerofcode.withgoogle.com/programs/2026/projects/ssoc2JtG&quot;&gt;My project&lt;/a&gt;
+this summer is to implement USB redirection for &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://gitlab.com/marcandre.lureau/qemu-display/-/tree/master/qemu-rdp&quot;&gt;qemu-rdp&lt;/a&gt;. qemu-rdp is an &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://en.wikipedia.org/wiki/Remote_Desktop_Protocol&quot;&gt;RDP&lt;/a&gt;
+server for the &lt;code&gt;org.qemu.Display1&lt;/code&gt; D-Bus interface that &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://qemu.org&quot;&gt;QEMU&lt;/a&gt; exposes with
+&lt;code&gt;-display dbus&lt;/code&gt;. It runs as its own process, outside of QEMU, and turns a
+virtual machine into a remote desktop that speaks a protocol every platform
+already has a client for. It could already carry display, input, audio and
+clipboard, but not a USB device.&lt;/p&gt;
+&lt;p&gt;And my work aims to close that gap. USB redirection feels like plugging a local
+USB device into a remote QEMU machine over the network.&lt;/p&gt;
+&lt;p&gt;RDP carries everything beyond the core desktop over &lt;em&gt;dynamic virtual channels&lt;/em&gt;,
+multiplexed by a static &lt;code&gt;DRDYNVC&lt;/code&gt; channel (&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpedyc/3bd53020-9b64-4c9a-97fc-90a79e7e1e06&quot;&gt;MS-RDPEDYC&lt;/a&gt;). &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-rdpeusb/a1004d0e-99e9-4968-894b-0b924ef2f125&quot;&gt;MS-RDPEUSB&lt;/a&gt; defines
+one named &lt;code&gt;URBDRC&lt;/code&gt; for USB. What it carries is deliberately low level: &lt;strong&gt;URBs&lt;/strong&gt;,
+raw USB Request Blocks, so a device works without any code written for its
+class.&lt;/p&gt;
+&lt;p&gt;QEMU, meanwhile, already speaks &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://www.spice-space.org/usbredir.html&quot;&gt;usbredir&lt;/a&gt;, the protocol SPICE has used for USB
+pass-through for years. &lt;code&gt;-device usb-redir&lt;/code&gt; gives the guest an emulated port
+and exposes the other end as a chardev, which QEMU offers over the same
+&lt;code&gt;org.qemu.Display1&lt;/code&gt; D-Bus interface. That chardev is qemu-rdp&#39;s way in.&lt;/p&gt;
+&lt;p&gt;So the project is a bridge. qemu-rdp plays the usbredir host, except it owns no
+device: each request from QEMU becomes a URB sent over &lt;code&gt;URBDRC&lt;/code&gt; to the RDP
+client, and completes when the answer comes back.&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;plain&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;[physical USB] → RDP client → URBDRC over DRDYNVC → qemu-rdp → usbredir → QEMU → [guest]&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;my-work&quot;&gt;My Work&lt;a class=&quot;zola-anchor&quot; href=&quot;#my-work&quot; aria-label=&quot;Anchor link for: my-work&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;p&gt;All my work can be found in these repos:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;my info: @uchouT &lt;a href=&quot;mailto:i@uchout.moe&quot;&gt;i@uchout.moe&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://gitlab.com/marcandre.lureau/qemu-display/-/tree/master/qemu-rdp&quot;&gt;qemu-rdp&lt;/a&gt; - the RDP server that exports a QEMU virtual machine. I wrote the
+USB redirection backend here, bridging &lt;code&gt;URBDRC&lt;/code&gt; to usbredir.&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP&quot;&gt;IronRDP&lt;/a&gt; - the Rust RDP stack qemu-rdp is built on. The MS-RDPEUSB
+implementation lives here, along with the dynamic virtual channel work it
+needed.&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/FreeRDP/FreeRDP&quot;&gt;FreeRDP&lt;/a&gt; - the widely used C implementation of RDP, and the client I tested
+against. A few &lt;code&gt;urbdrc&lt;/code&gt; bug fixes.&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://gitlab.com/qemu-project/qemu&quot;&gt;QEMU&lt;/a&gt; - just a documentation fix for the D-Bus chardev.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;I&#39;ll pick some highlights from my GSoC project below.&lt;/p&gt;
+&lt;p&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://youtu.be/0Pqclo0T26Q&quot;&gt;demo video&lt;/a&gt;. (Bad oral English warnings!)&lt;/p&gt;
+&lt;h3 id=&quot;decoupling-qemu-display-s-usbredir-manager&quot;&gt;Decoupling &lt;code&gt;qemu-display&lt;/code&gt;&#39;s usbredir manager&lt;a class=&quot;zola-anchor&quot; href=&quot;#decoupling-qemu-display-s-usbredir-manager&quot; aria-label=&quot;Anchor link for: decoupling-qemu-display-s-usbredir-manager&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;qemu-display could already redirect a USB device to QEMU, but only a local
+physical one. Its &lt;code&gt;usbredir&lt;/code&gt; module did not merely use &lt;code&gt;usbredirhost&lt;/code&gt; — it
+&lt;em&gt;was&lt;/em&gt; the usbredirhost session: a &lt;code&gt;DeviceHandler&lt;/code&gt; implementation with its own
+&lt;code&gt;Drop&lt;/code&gt; and raw file-descriptor polling, keyed by USB bus and device address.
+&lt;code&gt;qemu_display::Error&lt;/code&gt; carried &lt;code&gt;Rusb&lt;/code&gt; and &lt;code&gt;Usbredir&lt;/code&gt; variants, so every consumer
+of the crate depended on libusb, and &lt;code&gt;Display::usbredir()&lt;/code&gt; handed back a
+manager with nothing to substitute.&lt;/p&gt;
+&lt;p&gt;qemu-rdp has no local device to give it. Its device lives behind the RDP
+connection, and is driven by the client rather than by usbredirhost. But the
+part it does need was already written: finding a free chardev, creating the
+socket pair, registering one end over D-Bus, and tracking the live sessions and
+the free-channel count.&lt;/p&gt;
+&lt;p&gt;So I separated them. A &lt;code&gt;UsbRedirBackend&lt;/code&gt; trait and a generic &lt;code&gt;UsbRedir&amp;lt;B&amp;gt;&lt;/code&gt; keep
+the chardev orchestration in qemu-display; the usbredirhost session moved out
+to qemu-rdw, where it belongs; the rusb error variants left &lt;code&gt;qemu_display:: Error&lt;/code&gt;; and &lt;code&gt;Display::usbredir()&lt;/code&gt; became &lt;code&gt;usbredir_chardevs()&lt;/code&gt; plus explicit
+backend injection.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://gitlab.com/marcandre.lureau/qemu-display/-/merge_requests/8&quot;&gt;qemu-display!8&lt;/a&gt; - decouple the usbredir channel manager from the host
+backend&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;refactoring-ironrdp-dvc&quot;&gt;Refactoring &lt;code&gt;ironrdp-dvc&lt;/code&gt;&lt;a class=&quot;zola-anchor&quot; href=&quot;#refactoring-ironrdp-dvc&quot; aria-label=&quot;Anchor link for: refactoring-ironrdp-dvc&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;URBDRC asks more of the DVC layer than any channel before it. Channels have to
+be created and closed at runtime, and every instance shares one name — a
+control channel plus one channel per redirected device, told apart only by the
+ID &lt;code&gt;DRDYNVC&lt;/code&gt; assigns them. &lt;code&gt;ironrdp-dvc&lt;/code&gt; could do neither: channels were
+registered once at build time, and the registry was keyed by name, so a second
+&lt;code&gt;URBDRC&lt;/code&gt; would have overwritten the first. It took several PRs to get there.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1142&quot;&gt;IronRDP#1142&lt;/a&gt; - &lt;code&gt;DvcChannelListener&lt;/code&gt;, so one name can produce many
+processors&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1302&quot;&gt;IronRDP#1302&lt;/a&gt; - closing a channel from either side&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1368&quot;&gt;IronRDP#1368&lt;/a&gt;, &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1377&quot;&gt;IronRDP#1377&lt;/a&gt; - typed accessors, so a caller recovers a
+processor together with its channel ID and the wrapper types stay private&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1416&quot;&gt;IronRDP#1416&lt;/a&gt; - reserve the ID before building the processor, so the
+processor can use it while initializing&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;The first of those came out of a design argument I am glad I made.
+&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/issues/1135&quot;&gt;IronRDP#1135&lt;/a&gt; arrived with
+a plan already sketched, and the plan was to let the DVC layer do the work: a
+protocol processor would queue up the channels it wanted, and the layer beneath
+would notice and open them on its next pass. It would have worked for USB
+redirection. I argued against it anyway.&lt;/p&gt;
+&lt;p&gt;Two things were wrong with it. That layer only wakes up when the client sends
+something, so channels could only ever be opened in reaction to the client —
+while RDPEDYC is clear that the server is the side that opens them. And it asked
+a layer whose whole job is to speak RDPEDYC to also understand &lt;em&gt;why&lt;/em&gt; a channel
+was wanted, a question only the protocol above it can answer. Convenient for USB
+redirection, useless to anything else, and paid for out of the layering.&lt;/p&gt;
+&lt;p&gt;What I proposed instead was that the DVC layer simply offer a way to create a
+channel and know nothing about who asked or why, leaving that decision to the
+layer that actually has the context.&lt;/p&gt;
+&lt;h3 id=&quot;ironrdp-rdpeusb-pdu-codec&quot;&gt;&lt;code&gt;ironrdp-rdpeusb&lt;/code&gt; PDU codec&lt;a class=&quot;zola-anchor&quot; href=&quot;#ironrdp-rdpeusb-pdu-codec&quot; aria-label=&quot;Anchor link for: ironrdp-rdpeusb-pdu-codec&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1165&quot;&gt;IronRDP#1165&lt;/a&gt; had left a PDU
+skeleton in place, and I finished the codec on top of it. The idea running
+through these PRs is to let the type system carry that context, so an invalid
+state is not merely rejected at runtime but impossible to build.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1294&quot;&gt;IronRDP#1294&lt;/a&gt; - lift &lt;code&gt;SHARED_MSG_HEADER&lt;/code&gt; out of every PDU struct, so callers
+cannot assemble a mismatched header&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1321&quot;&gt;IronRDP#1321&lt;/a&gt; - split the PDU and &lt;code&gt;TS_URB&lt;/code&gt; enum wrappers&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1403&quot;&gt;IronRDP#1403&lt;/a&gt; - separate raw and validated &lt;code&gt;InternalIoControl&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1456&quot;&gt;IronRDP#1456&lt;/a&gt; - type the URB completion payloads&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;urbdrc-state-machine&quot;&gt;URBDRC state machine&lt;a class=&quot;zola-anchor&quot; href=&quot;#urbdrc-state-machine&quot; aria-label=&quot;Anchor link for: urbdrc-state-machine&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;Sans-I/O protocol processors for both the server and the client side. This is
+one of the most interesting and challenging part of my GSoC journey :) The
+traits are the seam between the protocol and whatever backend sits behind it,
+so designing them meant working out the whole data flow first.&lt;/p&gt;
+&lt;p&gt;Setting up a new device channel is the trickiest part of that flow. When a
+device is plugged in on the client, the client asks the server to open a
+channel for it, and the server does, but what comes back carries nothing except
+a channel ID. To the DVC layer it is just another &lt;code&gt;URBDRC&lt;/code&gt; channel,
+indistinguishable from the control channel or from any other device. The client
+still has to announce the device on it with &lt;code&gt;ADD_DEVICE&lt;/code&gt;, and &lt;code&gt;ADD_DEVICE&lt;/code&gt;
+needs that device&#39;s information.&lt;/p&gt;
+&lt;p&gt;Nothing in the protocol correlates the two, and the processor cannot do it
+either — it has no way of knowing which device is its own. Only the backend
+knows, because it is the side that asked for the channel in the first place. So
+that became part of the trait: when a new channel appears, the backend is asked
+to hand over the device it has been waiting to redirect, and the device
+information is fetched from it again later, at the moment &lt;code&gt;ADD_DEVICE&lt;/code&gt; is
+actually assembled.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1365&quot;&gt;IronRDP#1365&lt;/a&gt; - the client processors&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1394&quot;&gt;IronRDP#1394&lt;/a&gt; - the server processors, plus the backend-facing &lt;code&gt;io&lt;/code&gt; model
+shared by both sides&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;getting-it-working-first&quot;&gt;Getting it working first&lt;a class=&quot;zola-anchor&quot; href=&quot;#getting-it-working-first&quot; aria-label=&quot;Anchor link for: getting-it-working-first&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;The protocol library was finished, and completely untested against anything
+real. So before polishing it any further I went for an end-to-end prototype:
+wire usbredir into qemu-rdp, redirect one device, and find out whether the
+state machine I had written actually held up.&lt;/p&gt;
+&lt;p&gt;qemu-rdp builds on &lt;code&gt;ironrdp-server&lt;/code&gt;, so the wiring had to start there. I opened
+&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1417&quot;&gt;IronRDP#1417&lt;/a&gt; as a draft to
+hold the place, then moved over to qemu-rdp and put usbredir in as fast as I
+could. It worked in the end: FreeRDP connected, and a USB flash drive showed up
+inside the guest. LLMs helped a lot during that push.&lt;/p&gt;
+&lt;p&gt;The result was buggy and not something I would want to maintain, but that was
+never the point. The point was to find out what I did not know yet, and it
+delivered:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;a couple of bugs in FreeRDP&#39;s own urbdrc client&lt;/li&gt;
+&lt;li&gt;a set of edge cases in the Linux USB API that I only cornered by stracing the
+kernel to see what was actually being submitted — an interesting journey in
+itself :)&lt;/li&gt;
+&lt;li&gt;USB state management and USB-to-RDPEUSB translation turned out to be far more
+work than I expected, and meanwhile I ran into &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/clintcan/macrdp&quot;&gt;macrdp&lt;/a&gt;, another RDP server
+built on &lt;code&gt;ironrdp-server&lt;/code&gt; that is solving exactly the same problem.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;By the end of that detour I had enough context to see how the work should be
+actuall landed.&lt;/p&gt;
+&lt;h3 id=&quot;usb-model&quot;&gt;USB model&lt;a class=&quot;zola-anchor&quot; href=&quot;#usb-model&quot; aria-label=&quot;Anchor link for: usb-model&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;The duplicated part was never really application work. Driving a redirected
+device through the protocol processors alone meant assembling &lt;code&gt;TS_URB&lt;/code&gt;
+structures and tracking USB device state by hand, and doing it again in every
+application that wanted to redirect a device. So I split it into three layers,
+each one allowed to speak only its own vocabulary:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;ironrdp-usb&lt;/code&gt; — USB and nothing else: protocol-independent, &lt;code&gt;no_std&lt;/code&gt;,
+sans-I/O, no dependencies. It describes USB operations without executing them,
+and parses only the byte layouts USB itself defines.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ironrdp-rdpeusb::usb&lt;/code&gt; — translation. An &lt;code&gt;ironrdp-usb&lt;/code&gt; request goes in, a
+complete RDPEUSB packet comes out, so the &lt;code&gt;TS_URB&lt;/code&gt; payload, URB function,
+transfer envelope, flags and buffer shape cannot disagree with each other.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;ironrdp-server&lt;/code&gt; — the facade, and the request lifetime that comes with it:
+request IDs, completion routing, and RAII pending requests that cancel
+themselves on the wire when dropped. A caller never names a &lt;code&gt;TS_URB&lt;/code&gt;.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Above those sits the application. qemu-rdp only has to deal with what usbredir
+itself imposes, and macrdp, or anything else built on IronRDP, gets the same
+three layers for free. The full rationale is in
+&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/discussions/1516&quot;&gt;IronRDP#1516&lt;/a&gt;.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1682&quot;&gt;IronRDP#1682&lt;/a&gt; - the new &lt;code&gt;ironrdp-usb&lt;/code&gt; crate&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1683&quot;&gt;IronRDP#1683&lt;/a&gt; - the RDPEUSB translation module&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/pull/1417&quot;&gt;IronRDP#1417&lt;/a&gt; - the server integration and the device facade&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;rebuilding-the-qemu-rdp-bridge&quot;&gt;Rebuilding the qemu-rdp bridge&lt;a class=&quot;zola-anchor&quot; href=&quot;#rebuilding-the-qemu-rdp-bridge&quot; aria-label=&quot;Anchor link for: rebuilding-the-qemu-rdp-bridge&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;With the three layers in place I went back to qemu-rdp and rewrote the USB side
+on top of them.&lt;/p&gt;
+&lt;p&gt;The rewrite splits along the line the layering suggested. &lt;code&gt;session_task&lt;/code&gt; is the
+transport half: it frames the QEMU chardev, drives &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/elmarco/usbredir-proto&quot;&gt;usbredir-proto&lt;/a&gt;&#39;s sans-I/O
+parser, and holds no USB or usbredir state of its own. &lt;code&gt;bridge&lt;/code&gt; is everything
+else — capability negotiation, device state, packet translation, and
+correlating each usbredir request with the RDP completion that eventually
+answers it.&lt;/p&gt;
+&lt;p&gt;Correlation turned out to be the subtle one. A usbredir request and an RDPEUSB
+request are not the same object and do not end at the same moment, so the piece
+that tracks them in flight tracks only their lifetime; what a request is &lt;em&gt;for&lt;/em&gt;
+rides along with it and is never interpreted there. Lifetime and meaning stay
+in different places.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://gitlab.com/marcandre.lureau/qemu-display/-/commits/gsoc-2026-usbredir&quot;&gt;gsoc-2026-usbredir&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;future-work&quot;&gt;Future Work&lt;a class=&quot;zola-anchor&quot; href=&quot;#future-work&quot; aria-label=&quot;Anchor link for: future-work&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;Land the rest of the IronRDP work. The new crates need a release before
+anything downstream can depend on them.&lt;/li&gt;
+&lt;li&gt;Interrupt IN and isochronous transfers in qemu-rdp. Only what a mass-storage
+device needs is wired up today.&lt;/li&gt;
+&lt;li&gt;Test against mstsc. FreeRDP has been my only client so far, and the Windows
+one decides what the spec means in practice.&lt;/li&gt;
+&lt;li&gt;URBDRC support in &lt;code&gt;ironrdp-client&lt;/code&gt;. IronRDP can serve a redirected device,
+but cannot yet redirect one.&lt;/li&gt;
+&lt;li&gt;Rebuild rdw-rdp on &lt;code&gt;ironrdp-client&lt;/code&gt;, now that it is a library rather than a
+binary — and pick up URBDRC along with it.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;thoughts&quot;&gt;Thoughts&lt;a class=&quot;zola-anchor&quot; href=&quot;#thoughts&quot; aria-label=&quot;Anchor link for: thoughts&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;p&gt;Actually, I have a lot to talk about, but to not make this post tedious, I just
+list tl;dr here. More about them may be published in the future, tagged with
+&lt;a href=&quot;/tags/gsoc-2026&quot;&gt;#gsoc-2026&lt;/a&gt;.&lt;/p&gt;
+&lt;h3 id=&quot;data-matters-a-lot&quot;&gt;Data matters a lot&lt;a class=&quot;zola-anchor&quot; href=&quot;#data-matters-a-lot&quot; aria-label=&quot;Anchor link for: data-matters-a-lot&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;Data comes first, and code is shaped to fit it. Looking back, most of the time
+I thought I was designing behaviour I was really deciding something else: what
+to store, where it should live, and who is allowed to know it. The hard
+question was never &lt;em&gt;what should this function do&lt;/em&gt;, but &lt;em&gt;who holds this piece of
+information, and when&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;With the wrong data, code turns ugly and fills up with hacks. With the right
+data, it comes out simple and elegant.&lt;/p&gt;
+&lt;h3 id=&quot;deciding-what-not-to-do&quot;&gt;Deciding what not to do&lt;a class=&quot;zola-anchor&quot; href=&quot;#deciding-what-not-to-do&quot; aria-label=&quot;Anchor link for: deciding-what-not-to-do&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;In &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://www.tedinski.com/2018/01/30/the-one-ring-problem-abstraction-and-power.html&quot;&gt;The one ring problem: abstraction and our quest for power&lt;/a&gt; (I found this
+blog series in IronRDP repo&#39;s &lt;code&gt;ARCHITECTURE.md&lt;/code&gt;), Ted Kaminski describes how
+programmers are tempted to reach for ever more power in their abstractions. The
+reach is tempting because power arrives as convenience and bills you later.&lt;/p&gt;
+&lt;p&gt;Most of the decisions I am happy with this summer were refusals. Again and
+again I was tempted to let a layer learn one small thing about the layer above
+it, because it would have made the case in front of me much easier. Leaving it
+out was never a limitation I ran into; it was a capability I declined to take,
+and it always felt like the long way round.&lt;/p&gt;
+&lt;p&gt;What you get back is a boundary the next person can reason about without
+reading your code. The less a layer exposes, the less there is to get wrong.&lt;/p&gt;
+&lt;h3 id=&quot;communication-in-open-source&quot;&gt;Communication in open source&lt;a class=&quot;zola-anchor&quot; href=&quot;#communication-in-open-source&quot; aria-label=&quot;Anchor link for: communication-in-open-source&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;In open source, people meet each other through the work itself. IronRDP&#39;s
+maintainer &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/CBenoit&quot;&gt;@CBenoit&lt;/a&gt; reached out on Matrix to say
+he liked my sense of architecture, and later asked for my help on the project&#39;s
+LLM harness — something well outside what I had signed up for. None of that
+came from introducing myself well.&lt;/p&gt;
+&lt;p&gt;There is a real freedom in that. No pleasantries to perform, no self-packaging
+(I feel really uncomfortable with it!!), no reading the room. You say the
+thing, you show the code, and the work carries exactly the weight it earns.&lt;/p&gt;
+&lt;h2 id=&quot;thanks&quot;&gt;Thanks&lt;a class=&quot;zola-anchor&quot; href=&quot;#thanks&quot; aria-label=&quot;Anchor link for: thanks&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/elmarco&quot;&gt;Marc-André Lureau&lt;/a&gt; - my mentor, who helped
+enormously throughout, needless to say&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP&quot;&gt;IronRDP&lt;/a&gt; community - for the reviews, and I really learned a lot from it&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/glamberson&quot;&gt;glamberson&lt;/a&gt; - we had a nice
+&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/Devolutions/IronRDP/issues/1077#issuecomment-4528328787&quot;&gt;discussion&lt;/a&gt;
+about where the spec is ambiguous&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/clintcan&quot;&gt;clintcan&lt;/a&gt; - &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/clintcan/macrdp&quot;&gt;macrdp&lt;/a&gt; maintainer, helps me with
+the test, and offers valuable mstsc cases&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/playbahn&quot;&gt;playbahn&lt;/a&gt; - who did much of the early work on
+the PDU codec&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://qemu.org&quot;&gt;QEMU&lt;/a&gt; community - for taking me on as a GSoC org, and for &lt;code&gt;-display dbus&lt;/code&gt;
+and usbredir, the two things this whole project stands on&lt;/li&gt;
+&lt;li&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://summerofcode.withgoogle.com/&quot;&gt;Google&lt;/a&gt; - for running Summer of Code,
+which is how all of this started&lt;/li&gt;
+&lt;/ul&gt;
+</content>
+	</entry>
+</feed>

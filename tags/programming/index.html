@@ -1,0 +1,286 @@
+
+<!DOCTYPE html>
+
+<html lang="
+
+zh">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="programming">
+<link rel="canonical" href="https://uchout.moe/tags/programming/">
+<meta property="og:site_name" content="uchouT&#39;s Gensokyo">
+<meta property="og:type" content="website">
+<meta property="og:title" content="programming">
+<meta property="og:description" content="programming">
+<meta property="og:url" content="https://uchout.moe/tags/programming/">
+<meta property="og:locale" content="zh">
+
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="programming">
+<meta name="twitter:description" content="programming">
+
+
+
+  <title>uchouT::programming</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://uchout.moe/img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://uchout.moe/img/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://uchout.moe/img/apple-touch-icon.png">
+  <link rel="preconnect" href="https://cdn.jsdmirror.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdmirror.com/npm/@wc1font/lxgw-wen-kai-screen/font.css">
+<style>
+  /* Crimson Text, declared here instead of via a google-fonts stylesheet so we
+     can apply size-adjust.
+
+     Crimson Text has a small x-height (0.427em) compared to LXGW WenKai's own
+     latin glyphs (0.508em), so latin text renders visibly smaller than the
+     chinese around it. 115% sits between matching x-height (119%) and matching
+     cap-height (112%). Tune it here; it does not affect the chinese font.
+
+     jsDelivr first, gstatic as a fallback if it ever fails to load. */
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfbwhT.woff2) format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: 'Crimson Text';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    size-adjust: 115%;
+    src: url(https://cdn.jsdmirror.com/npm/@fontsource/crimson-text@5/files/crimson-text-latin-ext-400-normal.woff2) format('woff2'),
+         url(https://fonts.gstatic.com/s/crimsontext/v19/wlp2gwHKFkZgtmSR3NB0oRJfYQhTM_I.woff2) format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+</style>
+
+  <style>
+
+  /* light mode colors */
+  body {
+    --primary-color: #5871a2;
+    --primary-pale-color: #5871a233;
+    --primary-decoration-color: #5871a210;
+    --bg-color: #ffffff;
+    --text-color: #2f3030;
+    --text-pale-color: #767676;
+    --text-decoration-color: #a9a9a9;
+    --highlight-mark-color: #5f75b020;
+
+    --callout-note-color: #5871a2;
+    --callout-tip-color: #268556;
+    --callout-important-color: #885fc9;
+    --callout-warning-color: #ab6632;
+    --callout-caution-color: #c64e4e;
+  }
+
+  /* dark mode colors */
+  body.dark {
+    --primary-color: #6f8fd1;
+    --primary-pale-color: #6f8fd166;
+    --primary-decoration-color: #6f8fd112;
+    --bg-color: #1c1c1c;
+    --text-color: #c1c1c1;
+    --text-pale-color: #848484;
+    --text-decoration-color: #5f5f5f;
+    --highlight-mark-color: #8296cb3b;
+
+    --callout-note-color: #6f8fd1;
+    --callout-tip-color: #47976f;
+    --callout-important-color: #9776cd;
+    --callout-warning-color: #ad7a52;
+    --callout-caution-color: #d06161;
+  }
+
+  /* typography */
+  body {
+    --main-font: "Crimson Text", "LXGW WenKai Screen", ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --code-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace, 'Liberation Mono';
+    --homepage-max-width: 768px;
+    --main-max-width: 768px;
+    --avatar-size: 60px;
+    --font-size: 1.1em;
+    --line-height: 1.75;
+    --img-border-radius: 0px;
+    --detail-border-radius: 0px;
+    --dark-mode-img-brightness: 0.75;
+    --dark-mode-chart-brightness: 0.75;
+    --inline-code-border-radius: 2px;
+    --inline-code-bg-color: var(--primary-decoration-color);
+    --block-code-border-radius: 0px;
+    --block-code-border-color: var(--primary-color);
+    --detail-border-color: var(--primary-color);
+  }
+
+  /* smaller font on mobile (desktop is 1.1em, set above) */
+  @media (max-width: 768px) {
+    body {
+      --font-size: 1em;
+    }
+  }
+
+  /* footer rss button, icon instead of text */
+  body footer .right #rss-btn {
+    padding: 4px;
+    line-height: 0;
+  }
+  body footer .right #rss-btn svg {
+    scale: 0.7;
+  }
+
+</style>
+
+  <link rel="stylesheet" href="https://uchout.moe/main.css">
+  
+
+<link rel="alternate" type="application/rss+xml" title="programming" href="https://uchout.moe/tags/programming/feed.xml">
+
+<style>
+  body.tag-single .title {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+  }
+  body.tag-single .title .rss {
+    color: var(--text-pale-color);
+    line-height: 0;
+  }
+  body.tag-single .title .rss:hover {
+    color: var(--primary-color);
+  }
+  body.tag-single .title .rss svg {
+    width: 16px;
+    height: 16px;
+  }
+</style>
+
+  
+</head>
+
+<body class="tag-single">
+  
+  <script>
+    const theme = sessionStorage.getItem('theme');
+    const match = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if ((theme && theme == 'dark') || (!theme && match)) {
+      document.body.classList.add('dark');
+      const hl = document.querySelector('link#hl');
+      if (hl) hl.href = 'https://uchout.moe/giallo-dark.css';
+    }
+  </script>
+  
+  
+<div id="wrapper">
+  
+  
+<header>
+  <nav>
+    <a id="back-link" href="https://uchout.moe/tags/">← Return</a>
+  </nav>
+</header>
+
+  <main class="layout-list">
+    <div class="title">
+      <span># programming</span>
+      
+      
+      <a class="rss" href="https://uchout.moe/tags/programming/feed.xml" aria-label="RSS" title="RSS"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M3 3C12.9411 3 21 11.0589 21 21H18C18 12.7157 11.2843 6 3 6V3ZM3 10C9.07513 10 14 14.9249 14 21H11C11 16.5817 7.41828 13 3 13V10ZM3 17C5.20914 17 7 18.7909 7 21H3V17Z" fill="currentColor"></path></svg>
+</a>
+      
+    </div>
+    <div class="post-list">
+      
+      
+      <a class="post instant " href="https://uchout.moe/posts/gsoc-2026-final/">
+        <span>GSoC 2026 final report</span>
+        <span class="date">Aug 21, 2026</span>
+      </a>
+      
+      <a class="post instant " href="https://uchout.moe/posts/two-kinds-of-vtable/">
+        <span>用 c 手搓 c++ 和 rust 两种 vtable</span>
+        <span class="date">May 12, 2026</span>
+      </a>
+      
+      <a class="post instant " href="https://uchout.moe/posts/software-design/">
+        <span>ted kaminski blog reading</span>
+        <span class="date">Apr 6, 2026</span>
+      </a>
+      
+      <a class="post instant " href="https://uchout.moe/posts/rust-dyn-compatibility/">
+        <span>Deep Dive into Rust Dyn Compatibility</span>
+        <span class="date">Jan 11, 2026</span>
+      </a>
+      
+    </div>
+  </main>
+  
+
+  
+  
+
+<footer>
+  <div class="left">
+    <div class="copyright">
+      © uchouT
+      
+      <span>|</span>
+      Built with <a href="https://www.getzola.org" rel="noreferrer" target="_blank">zola</a> and <a href="https://github.com/isunjn/serene" rel="noreferrer" target="_blank">serene</a>
+      
+      <span>|</span>
+      <a href="https://creativecommons.org/licenses/by/4.0/" rel="license noreferrer" target="_blank">CC BY 4.0</a>
+    </div>
+  </div>
+
+  <div class="right">
+    
+    
+    <a id="rss-btn" href="https://uchout.moe/posts/feed.xml" aria-label="RSS" title="RSS"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M3 3C12.9411 3 21 11.0589 21 21H18C18 12.7157 11.2843 6 3 6V3ZM3 10C9.07513 10 14 14.9249 14 21H11C11 16.5817 7.41828 13 3 13V10ZM3 17C5.20914 17 7 18.7909 7 21H3V17Z" fill="currentColor"></path></svg>
+</a>
+    
+
+    
+    
+    
+    <button id="theme-toggle" aria-label="theme switch">
+      <span class="moon-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M10 7C10 10.866 13.134 14 17 14C18.9584 14 20.729 13.1957 21.9995 11.8995C22 11.933 22 11.9665 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C12.0335 2 12.067 2 12.1005 2.00049C10.8043 3.27098 10 5.04157 10 7ZM4 12C4 16.4183 7.58172 20 12 20C15.0583 20 17.7158 18.2839 19.062 15.7621C18.3945 15.9187 17.7035 16 17 16C12.0294 16 8 11.9706 8 7C8 6.29648 8.08133 5.60547 8.2379 4.938C5.71611 6.28423 4 8.9417 4 12Z" fill="currentColor"></path></svg>
+</span>
+      <span class="sun-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 18C8.68629 18 6 15.3137 6 12C6 8.68629 8.68629 6 12 6C15.3137 6 18 8.68629 18 12C18 15.3137 15.3137 18 12 18ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16ZM11 1H13V4H11V1ZM11 20H13V23H11V20ZM3.51472 4.92893L4.92893 3.51472L7.05025 5.63604L5.63604 7.05025L3.51472 4.92893ZM16.9497 18.364L18.364 16.9497L20.4853 19.0711L19.0711 20.4853L16.9497 18.364ZM19.0711 3.51472L20.4853 4.92893L18.364 7.05025L16.9497 5.63604L19.0711 3.51472ZM5.63604 16.9497L7.05025 18.364L4.92893 20.4853L3.51472 19.0711L5.63604 16.9497ZM23 11V13H20V11H23ZM4 11V13H1V11H4Z" fill="currentColor"></path></svg>
+</span>
+    </button>
+    
+  </div>
+</footer>
+
+
+
+<dialog id="rss-mask">
+  <div>
+    <a href="https://uchout.moe/posts/feed.xml">https://uchout.moe/posts/feed.xml</a>
+    
+    
+    <button autofocus aria-label="copy" data-link="https://uchout.moe/posts/feed.xml" data-copy-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" data-check-icon="&lt;svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; width=&quot;18&quot; height=&quot;18&quot;&gt;&lt;path d=&quot;M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z&quot; fill=&quot;currentColor&quot;&gt;&lt;/path&gt;&lt;/svg&gt;
+" >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M6.9998 6V3C6.9998 2.44772 7.44752 2 7.9998 2H19.9998C20.5521 2 20.9998 2.44772 20.9998 3V17C20.9998 17.5523 20.5521 18 19.9998 18H16.9998V20.9991C16.9998 21.5519 16.5499 22 15.993 22H4.00666C3.45059 22 3 21.5554 3 20.9991L3.0026 7.00087C3.0027 6.44811 3.45264 6 4.00942 6H6.9998ZM5.00242 8L5.00019 20H14.9998V8H5.00242ZM8.9998 6H16.9998V16H18.9998V4H8.9998V6Z" fill="currentColor"></path></svg>
+
+    </button>
+  </div>
+</dialog>
+
+
+</div>
+
+  
+  <script src="https://uchout.moe/js/main.js"></script>
+</body>
+
+</html>
