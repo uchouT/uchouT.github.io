@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="zh">
+	<title>uchouT&#39;s Gensokyo</title>
+	<subtitle>uchouT 的幻想乡</subtitle>
+	<link rel="self" type="application/atom+xml" href="https://uchout.moe/tags/kde/feed.xml"/>
+  <link rel="alternate" type="text/html" href="https://uchout.moe"/>
+  
+	<updated>2025-02-24T00:00:00+00:00</updated>
+	
+	<id>https://uchout.moe/tags/kde/feed.xml</id>
+	<entry xml:lang="zh">
+		<title>KDE 笔记本触控板手势优化 libinput-gestures + ydotool</title>
+		<published>2025-02-24T00:00:00+00:00</published>
+		<updated>2025-02-24T00:00:00+00:00</updated>
+		<link rel="alternate" type="text/html" href="https://uchout.moe/posts/kde-touchpad-gesture/"/>
+		<id>https://uchout.moe/posts/kde-touchpad-gesture/</id>
+    
+		<content type="html" xml:base="https://uchout.moe/posts/kde-touchpad-gesture/">&lt;p&gt;目前(6.3.1) KDE Plasma 桌面自带的触控板手势只有 4 指上滑下滑，这肯定是不够用的。可以通过 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/bulletmark/libinput-gestures&quot;&gt;libinput-gestures&lt;/a&gt; 来实现自定义笔记本触控板手势。&lt;/p&gt;
+&lt;h2 id=&quot;libinput-gestures&quot;&gt;libinput-gestures&lt;a class=&quot;zola-anchor&quot; href=&quot;#libinput-gestures&quot; aria-label=&quot;Anchor link for: libinput-gestures&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;h3 id=&quot;an-zhuang&quot;&gt;安装&lt;a class=&quot;zola-anchor&quot; href=&quot;#an-zhuang&quot; aria-label=&quot;Anchor link for: an-zhuang&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;arch 用户直接通过 AUR 安装 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://aur.archlinux.org/packages/libinput-gestures/&quot;&gt;libinput-gestures from AUR&lt;/a&gt;。&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;paru&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;S&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; libinput-gestures&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;其他发行版用户手动安装：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;git&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; clone&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; https://github.com/bulletmark/libinput-gestures.git&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-10 z-l-i z-d-12 z-d-i&quot;&gt;cd&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; libinput-gestures&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ./libinput-gestures-setup&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; install&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Debian and Ubuntu users may also need to install libinput-tools if that package exists in your release:&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; apt&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; install&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; libinput-tools&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/blockquote&gt;
+&lt;h3 id=&quot;qi-dong&quot;&gt;启动&lt;a class=&quot;zola-anchor&quot; href=&quot;#qi-dong&quot; aria-label=&quot;Anchor link for: qi-dong&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;加入 &lt;code&gt;input&lt;/code&gt; 用户组：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; gpasswd&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;a&lt;/span&gt;&lt;span&gt; $&lt;/span&gt;&lt;span&gt;USER&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; input&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;newgrp&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; input&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; #&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; 立即生效&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;ol start=&quot;2&quot;&gt;
+&lt;li&gt;添加自启动，并现在启动：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;libinput-gestures-setup&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; autostart&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; start&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;ydotool&quot;&gt;ydotool&lt;a class=&quot;zola-anchor&quot; href=&quot;#ydotool&quot; aria-label=&quot;Anchor link for: ydotool&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;p&gt;&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/bulletmark/libinput-gestures&quot;&gt;libinput-gestures 文档&lt;/a&gt;建议使用的键盘模拟器是 &lt;code&gt;xdotool&lt;/code&gt; ，但是它只能用在 xorg 或者 xwayland 的 app 上，而最新的 KDE 采用 wayland，因此我们用 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/ReimuNotMoe/ydotool&quot;&gt;ydotool&lt;/a&gt; 做替代。&lt;/p&gt;
+&lt;h3 id=&quot;an-zhuang-bing-qi-dong&quot;&gt;安装并启动&lt;a class=&quot;zola-anchor&quot; href=&quot;#an-zhuang-bing-qi-dong&quot; aria-label=&quot;Anchor link for: an-zhuang-bing-qi-dong&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; Arch:&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; pacman&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;S&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ydotool&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt;#&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; Debian based systems:&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; apt&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; install&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ydotool&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;添加开机自启动并现在启动：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;systemctl&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;-user&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; enable&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;-now&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ydotool.service&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;h2 id=&quot;pei-zhi&quot;&gt;配置&lt;a class=&quot;zola-anchor&quot; href=&quot;#pei-zhi&quot; aria-label=&quot;Anchor link for: pei-zhi&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;p&gt;创建自定义配置：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;cp&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /etc/libinput-gestures.conf&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ~/.config/&lt;/span&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt; &amp;amp;&amp;amp;&lt;/span&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt; kate&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ~/.config/libinput-gestures.conf&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&quot;libinput-gestures-pei-zhi-jie-shi&quot;&gt;libinput-gestures 配置解释&lt;a class=&quot;zola-anchor&quot; href=&quot;#libinput-gestures-pei-zhi-jie-shi&quot; aria-label=&quot;Anchor link for: libinput-gestures-pei-zhi-jie-shi&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;这里仅作快速上手解释，更详细请参考配置文件中的注释。
+配置格式：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;plain&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture &amp;lt;action&amp;gt; [finger_count] &amp;lt;command&amp;gt;&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;libinput-gestures 支持的 &lt;code&gt;action&lt;/code&gt; 有：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;swipe up&lt;/li&gt;
+&lt;li&gt;swipe down&lt;/li&gt;
+&lt;li&gt;swipe left&lt;/li&gt;
+&lt;li&gt;swipe right&lt;/li&gt;
+&lt;li&gt;swipe left_up&lt;/li&gt;
+&lt;li&gt;swipe left_down&lt;/li&gt;
+&lt;li&gt;swipe right_up&lt;/li&gt;
+&lt;li&gt;swipe right_down&lt;/li&gt;
+&lt;li&gt;pinch in&lt;/li&gt;
+&lt;li&gt;pinch out&lt;/li&gt;
+&lt;li&gt;pinch clockwise&lt;/li&gt;
+&lt;li&gt;pinch anticlockwise&lt;/li&gt;
+&lt;li&gt;hold on&lt;/li&gt;
+&lt;li&gt;hold on N (按压 N 秒)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;code&gt;finger_count&lt;/code&gt; 即同时运动的手指数，例如，三指上滑写为：&lt;code&gt;gesture swipe up 3&lt;/code&gt;
+&lt;code&gt;command&lt;/code&gt; 即执行的命令，可以是任何命令，包括运行脚本，因此可操作性很强。下面就是通过执行 &lt;code&gt;ydotool&lt;/code&gt; 命令来实现的快捷键触发。&lt;/p&gt;
+&lt;h3 id=&quot;ydotool-1&quot;&gt;ydotool&lt;a class=&quot;zola-anchor&quot; href=&quot;#ydotool-1&quot; aria-label=&quot;Anchor link for: ydotool-1&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;ydotool 支持键盘和鼠标模拟，详细参考：https://github.com/ReimuNotMoe/ydotool#usage&lt;/p&gt;
+&lt;p&gt;值得注意的是，ydotool 的 key 指令要用 keycodes，可以在这个文件中找到 keycodes：&lt;code&gt;/usr/include/linux/input-event-codes.h&lt;/code&gt; 。&lt;code&gt;keycodes:1&lt;/code&gt; 表示按住对应的键，&lt;code&gt;keycodes:0&lt;/code&gt; 表示释放对应的键。&lt;/p&gt;
+&lt;p&gt;例如，要用 ydotool 模拟 ctrl + F12，需要依次按住 ctrl，按住 F12，再释放两个按键。ctrl(左) 的 keycodes 为 29，F12 的 keycodes 为 88，则命令写作：&lt;code&gt;ydotool key 29:1 88:1 88:0 29:0&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&quot;can-kao-pei-zhi&quot;&gt;参考配置&lt;a class=&quot;zola-anchor&quot; href=&quot;#can-kao-pei-zhi&quot; aria-label=&quot;Anchor link for: can-kao-pei-zhi&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;于是，我们便可以自定义触控板的手势，来执行一些快捷键了。下面给出我自己用的简单配置：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;plain&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture swipe down 3 ydotool key 29:1 88:1 88:0 29:0     # 三指下滑回到桌面&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture swipe up 3 ydotool key 29:1 68:1 68:0 29:0       # 三指上滑查看窗口&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture swipe right 4  ydotool key 56:1 15:1 15:0 56:0   # 任务窗口切换&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture swipe left 4   ydotool key 56:1 15:1 15:0 56:0&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture pinch out ydotool key 29:1 13:1 13:0 29:0        # 捏合放大（Ctrl + =）&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;gesture pinch in ydotool key 29:1 12:1 12:0 29:0         # 捏合缩小（Ctrl + -）&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;配置完成后，需要重启 libinput-gestures 以应用：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;libinput-gestures-setup&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; stop&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; desktop&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; autostart&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; start&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;</content>
+	</entry>
+	<entry xml:lang="zh">
+		<title>Arch Linux + KDE 日常使用的记录</title>
+		<published>2024-09-02T00:00:00+00:00</published>
+		<updated>2024-09-02T00:00:00+00:00</updated>
+		<link rel="alternate" type="text/html" href="https://uchout.moe/posts/archlinux-daily-tips/"/>
+		<id>https://uchout.moe/posts/archlinux-daily-tips/</id>
+    
+		<content type="html" xml:base="https://uchout.moe/posts/archlinux-daily-tips/">&lt;blockquote class=&quot;markdown-alert-note&quot;&gt;
+&lt;p&gt;现在博主使用的是 niri.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;本文记录自己在笔记本上使用 ArchLinux 和 KDE plasma 桌面进行日常学习娱乐时遇到的一些问题，以及解决方法，伴随着使用会不断更新。&lt;/p&gt;
+&lt;p&gt;环境如下：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Host: HP Envy x360 2-in-1 Laptop 14-fa0xxx&lt;/li&gt;
+&lt;li&gt;OS: Arch Linux x86_64&lt;/li&gt;
+&lt;li&gt;Kernel: Linux 6.13.1-zen3-1-zen&lt;/li&gt;
+&lt;li&gt;DE: KDE Plasma 6.2.5&lt;/li&gt;
+&lt;li&gt;WM: Kwin (Wayland)&lt;/li&gt;
+&lt;li&gt;CPU: AMD Ryzen 7 8840HS w/ Radeon 780M Graphics (16) @ z&lt;/li&gt;
+&lt;li&gt;GPU: AMD Phoenix3 [Integrated]&lt;/li&gt;
+&lt;li&gt;Memory: 32G&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id=&quot;kde-xiang-guan&quot;&gt;KDE 相关&lt;a class=&quot;zola-anchor&quot; href=&quot;#kde-xiang-guan&quot; aria-label=&quot;Anchor link for: kde-xiang-guan&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;p&gt;目前的版本是 Plasma 6.2.5&lt;/p&gt;
+&lt;h3 id=&quot;jian-pan-shu-ru-qia-dun&quot;&gt;键盘输入卡顿&lt;a class=&quot;zola-anchor&quot; href=&quot;#jian-pan-shu-ru-qia-dun&quot; aria-label=&quot;Anchor link for: jian-pan-shu-ru-qia-dun&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;问题由 PSR 导致，需要加上一段内核参数。&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;PSR（面板自刷新）是一种节能技术，主要用于节省功耗。当屏幕内容保持不变时，显卡会停止发送数据，而是让显示面板自行维护画面。但在某些情况下，PSR 可能会导致显示问题，如：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;屏幕闪烁或短暂黑屏&lt;/li&gt;
+&lt;li&gt;画面冻结&lt;/li&gt;
+&lt;li&gt;延迟或其他图像异常&lt;/li&gt;
+&lt;/ul&gt;
+&lt;/blockquote&gt;
+&lt;ol&gt;
+&lt;li&gt;
+&lt;p&gt;确保使用的是 amd 开源驱动 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://wiki.archlinuxcn.org/wiki/AMDGPU&quot;&gt;AMDGPU&lt;/a&gt;。&lt;/p&gt;
+&lt;/li&gt;
+&lt;li&gt;
+&lt;p&gt;修改 GRUB 启动参数:&lt;/p&gt;
+&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;plain&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;sudoedit /etc/default/grub &lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;找到 &lt;code&gt;GRUB_CMDLINE_LINUX_DEFAULT&lt;/code&gt; ，在末尾加上 &lt;code&gt;amdgpu.dcdebugmask=0x10&lt;/code&gt; 参数。&lt;/p&gt;
+&lt;ol start=&quot;3&quot;&gt;
+&lt;li&gt;重新生成 GRUB 配置&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; grub-mkconfig&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;o&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /boot/grub/grub.cfg&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;下次重启时，应该就正常了。&lt;/p&gt;
+&lt;p&gt;问题跟进：https://bbs.archlinux.org/viewtopic.php?id=301280&lt;/p&gt;
+&lt;h3 id=&quot;qi-yong-xiu-mian&quot;&gt;启用休眠&lt;a class=&quot;zola-anchor&quot; href=&quot;#qi-yong-xiu-mian&quot; aria-label=&quot;Anchor link for: qi-yong-xiu-mian&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;参考： &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://wiki.archlinuxcn.org/zh-cn/%E7%94%B5%E6%BA%90%E7%AE%A1%E7%90%86/%E6%8C%82%E8%B5%B7%E4%B8%8E%E4%BC%91%E7%9C%A0&quot;&gt;ArchWiki&lt;/a&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;先确保已创建了交换分区，如果没有按以下命令创建：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; fallocate&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;l&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; 32G&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /swapfile&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt;   #&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; 大小 &amp;gt;= 内存&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; chmod&lt;/span&gt;&lt;span class=&quot;z-l-16 z-d-16&quot;&gt; 600&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /swapfile&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; mkswap&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /swapfile&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; swapon&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /swapfile&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; echo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; &amp;#39;&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;/swapfile none swap defaults 0 0&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;&amp;#39;&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt; &amp;gt;&amp;gt;&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /etc/fstab&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;ol start=&quot;2&quot;&gt;
+&lt;li&gt;配置 initramfs&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudoedit&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /etc/mkinitcpio.conf&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;找到 &lt;code&gt;HOOKS&lt;/code&gt; 在里面添加 &lt;code&gt;resume&lt;/code&gt; ，注意要添加在 &lt;code&gt;udev&lt;/code&gt; 之后。
+3. 重新生成配置 &lt;code&gt;sudo mkinitcpio -P &lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&quot;mei-hua&quot;&gt;美化&lt;a class=&quot;zola-anchor&quot; href=&quot;#mei-hua&quot; aria-label=&quot;Anchor link for: mei-hua&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;安装 &lt;code&gt;plasma-framework5&lt;/code&gt;，很多美化的东西要依赖这玩意。&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;splashscreen: https://www.pling.com/p/2136517&lt;/li&gt;
+&lt;li&gt;SDDM login Theme: https://www.pling.com/p/1312658&lt;/li&gt;
+&lt;li&gt;Application Style: kvantum + &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://www.pling.com/p/1325246&quot;&gt;layan&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;Global Theme: &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://www.pling.com/p/1325243&quot;&gt;Layan&lt;/a&gt;, 注意不要直接应用全局主题，我这里直接应用会导致黑屏，重启后才恢复，而且 dock 栏会直接消失。建议是下载了全局主题后，逐项目手动应用，dock 栏布局可能得自己手搓。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Desktop Effects 里面勾选 &quot;Blur&quot;.&lt;/p&gt;
+&lt;p&gt;窗口圆角：安装 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/a-parhom/LightlyShaders&quot;&gt;lightlyshaders&lt;/a&gt;, archlinux 用户直接通过 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://aur.archlinux.org/packages/lightlyshaders-git&quot;&gt;aur&lt;/a&gt; 安装。&lt;/p&gt;
+&lt;h3 id=&quot;ntfs-yi-dong-ying-pan-gua-zai-shi-bai&quot;&gt;NTFS 移动硬盘挂载失败&lt;a class=&quot;zola-anchor&quot; href=&quot;#ntfs-yi-dong-ying-pan-gua-zai-shi-bai&quot; aria-label=&quot;Anchor link for: ntfs-yi-dong-ying-pan-gua-zai-shi-bai&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;可以通过 &lt;code&gt;mount&lt;/code&gt; 命令手动挂载，但是在桌面环境中无法通过鼠标点击弹出的菜单挂载，会显示错误信息：&lt;code&gt;wrong fs type, bad option, bad superblock on /dev/sda1,  missing codepage or helper program, or other error&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;解决方法 :&lt;/strong&gt; 禁用 &lt;code&gt;ntfs3&lt;/code&gt; 模块，切换为 &lt;code&gt;ntfs-3g&lt;/code&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;将 &lt;code&gt;ntfs3&lt;/code&gt; 列入黑名单&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-10 z-l-i z-d-12 z-d-i&quot;&gt;echo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; &amp;quot;&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;blacklist ntfs3&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;&amp;quot;&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt; |&lt;/span&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt; sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; tee&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /etc/modprobe.d/blacklist-ntfs3.conf&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;更新 &lt;code&gt;initramfs&lt;/code&gt;&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; mkinitcpio&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;P&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;ol start=&quot;2&quot;&gt;
+&lt;li&gt;确保安装 &lt;code&gt;ntfs-3g&lt;/code&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; pacman&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;S&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ntfs-3g&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;ol start=&quot;3&quot;&gt;
+&lt;li&gt;编辑 &lt;code&gt;/etc/udisk2/mount_options.conf&lt;/code&gt;，加入以下内容：&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;ini&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;z-l-13 z-d-15&quot;&gt;defaults&lt;/span&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt;]&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;ntfs_defaults&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;uid&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;$UID,&lt;/span&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;gid&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;$GID,rw,relatime&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;ntfs_allow&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;uid&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;$UID,&lt;/span&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;gid&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;$GID,prealloc&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;重启后应该就正常了。&lt;/p&gt;
+&lt;h3 id=&quot;hong-kong-ban-shou-shi-you-hua&quot;&gt;触控板手势优化&lt;a class=&quot;zola-anchor&quot; href=&quot;#hong-kong-ban-shou-shi-you-hua&quot; aria-label=&quot;Anchor link for: hong-kong-ban-shou-shi-you-hua&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;安装 &lt;code&gt;libinput-gestures&lt;/code&gt; 和 &lt;code&gt;ydotool&lt;/code&gt; 。详细可以参考 &lt;a href=&quot;/posts/kde-touchpad-gesture/&quot;&gt;KDE 笔记本触控板手势优化 libinput-gestures + ydotool&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&quot;ruan-jian-xiang-guan&quot;&gt;软件相关&lt;a class=&quot;zola-anchor&quot; href=&quot;#ruan-jian-xiang-guan&quot; aria-label=&quot;Anchor link for: ruan-jian-xiang-guan&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;h3 id=&quot;flatpak-qie-huan-wei-yong-hu-ji-an-zhuang&quot;&gt;flatpak 切换为用户级安装&lt;a class=&quot;zola-anchor&quot; href=&quot;#flatpak-qie-huan-wei-yong-hu-ji-an-zhuang&quot; aria-label=&quot;Anchor link for: flatpak-qie-huan-wei-yong-hu-ji-an-zhuang&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;flatpak 中默认的 remote 源是系统级安装的，占用根分区。切换为用户级安装（只为当前用户安装）方法如下：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; flatpak&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; remote-delete&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; flathub&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; #&lt;/span&gt;&lt;span class=&quot;z-l-8 z-l-i z-d-4 z-d-i&quot;&gt; 删除原有的 remote&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;flatpak&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;-user&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; remote-add&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;-if-not-exists&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; flathub&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; https://dl.flathub.org/repo/flathub.flatpakrepo&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;h3 id=&quot;mpv-lian-jie-xie-yi-zhu-ce&quot;&gt;mpv 链接协议注册&lt;a class=&quot;zola-anchor&quot; href=&quot;#mpv-lian-jie-xie-yi-zhu-ce&quot; aria-label=&quot;Anchor link for: mpv-lian-jie-xie-yi-zhu-ce&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;用于打开 &lt;code&gt;mpv://&lt;/code&gt; 的 mpv 跳转链接。&lt;/p&gt;
+&lt;p&gt;直接用别人造好的协议注册器 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/akiirui/mpv-handler&quot;&gt;Github&lt;/a&gt;
+&lt;code&gt;paru -S mpv-hand&lt;/code&gt;&lt;/p&gt;
+&lt;h3 id=&quot;rime-shu-ru-fa&quot;&gt;rime 输入法&lt;a class=&quot;zola-anchor&quot; href=&quot;#rime-shu-ru-fa&quot; aria-label=&quot;Anchor link for: rime-shu-ru-fa&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudo&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; pacman&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;S&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; fcitx5-im&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; fcitx5-rime&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;设置里 &lt;code&gt;Keyboard&lt;/code&gt; -&amp;gt; &lt;code&gt;Virtual Keyboard&lt;/code&gt; 启用，再去 &lt;code&gt;input method&lt;/code&gt; 里添加 Rime，&lt;code&gt;Configure addons...&lt;/code&gt; 里把 UI 切换为 KDE plasma。&lt;/p&gt;
+&lt;p&gt;使用&lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://github.com/gaboolic/rime-frost&quot;&gt;白霜拼音&lt;/a&gt;词库：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;rm&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; -&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt;rf&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ~/.local/share/fcitx5/rime&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;git&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; clone&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; https://github.com/gaboolic/rime-frost.git&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; ~/.local/share/fcitx5/rime&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;重新部署即可。&lt;/p&gt;
+&lt;h3 id=&quot;dolphin-pei-zhi-you-jian-da-kai-tabby&quot;&gt;Dolphin 配置右键打开 Tabby&lt;a class=&quot;zola-anchor&quot; href=&quot;#dolphin-pei-zhi-you-jian-da-kai-tabby&quot; aria-label=&quot;Anchor link for: dolphin-pei-zhi-you-jian-da-kai-tabby&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;确保 Tabby 是从 GitHub 仓库下载 .pacman 文件进行安装的。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;blockquote&gt;
+&lt;p&gt;从 aur 获取的 Tabby 有谜之问题，没去研究过。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;ol start=&quot;2&quot;&gt;
+&lt;li&gt;创建 Dolphin Service Menus&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;shellscript&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-l-i z-d-2 z-d-i&quot;&gt;sudoedit&lt;/span&gt;&lt;span class=&quot;z-l-5 z-d-7&quot;&gt; /usr/share/kio/servicemenus/TabbyHere.desktop&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;目录位置也可能在 &lt;code&gt;~/.local/share/kio/servicemenus&lt;/code&gt;，视情况而定。然后粘贴以下内容：&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;ini&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;z-l-13 z-d-15&quot;&gt;Desktop Entry&lt;/span&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt;]&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;Type&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;Service&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;ServiceTypes&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;KonqPopupMenu/Plugin&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;MimeType&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;inode/directory&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;Actions&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;open_tabby&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;X-KDE-Priority&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;TopLevel&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;Icon&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;utilities-terminal&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;z-l-13 z-d-15&quot;&gt;Desktop Action open_tabby&lt;/span&gt;&lt;span class=&quot;z-l-8 z-d-4&quot;&gt;]&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;Open Tabby Here&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;Exec&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;tabby open %f&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span class=&quot;z-l-3 z-d-2&quot;&gt;Icon&lt;/span&gt;&lt;span class=&quot;z-l-2 z-d-5&quot;&gt;=&lt;/span&gt;&lt;span&gt;utilities-terminal&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;保存后重启 Dolphin，右键就能看到 &lt;code&gt;Open Tabby Here&lt;/code&gt; 的选项了，如果没看到，就去 &quot;Dolphin Configuration&quot; -&amp;gt; &quot;Context Menu&quot; 里启用一下。&lt;/p&gt;
+</content>
+	</entry>
+</feed>

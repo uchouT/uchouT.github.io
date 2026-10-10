@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="zh">
+	<title>uchouT&#39;s Gensokyo</title>
+	<subtitle>uchouT 的幻想乡</subtitle>
+	<link rel="self" type="application/atom+xml" href="https://uchout.moe/tags/software-design/feed.xml"/>
+  <link rel="alternate" type="text/html" href="https://uchout.moe"/>
+  
+	<updated>2026-04-06T00:00:00+00:00</updated>
+	
+	<id>https://uchout.moe/tags/software-design/feed.xml</id>
+	<entry xml:lang="zh">
+		<title>ted kaminski blog reading</title>
+		<published>2026-04-06T00:00:00+00:00</published>
+		<updated>2026-04-06T00:00:00+00:00</updated>
+		<link rel="alternate" type="text/html" href="https://uchout.moe/posts/software-design/"/>
+		<id>https://uchout.moe/posts/software-design/</id>
+    
+		<content type="html" xml:base="https://uchout.moe/posts/software-design/">&lt;p&gt;记录读了 ted kaminski 的 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://www.tedinski.com/archive/&quot;&gt;系列博客&lt;/a&gt; 的思考。&lt;/p&gt;
+&lt;h2 id=&quot;ruan-jian-de-yan-hua&quot;&gt;软件的演化&lt;a class=&quot;zola-anchor&quot; href=&quot;#ruan-jian-de-yan-hua&quot; aria-label=&quot;Anchor link for: ruan-jian-de-yan-hua&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&lt;em&gt;Definition:&lt;/em&gt; &lt;strong&gt;The standard algorithm&lt;/strong&gt;&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Write stuff&lt;/li&gt;
+&lt;li&gt;Fix it&lt;/li&gt;
+&lt;li&gt;Don&#39;t forget step 2&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;大型软件的结构不是一开始就设计好的，而是迭代出来的。设计必须迭代，因为&lt;strong&gt;在开始时你不知道自己不知道什么&lt;/strong&gt;。初期的目标不是做出最好的设计，而是最快速地暴露错误的假设。&lt;/p&gt;
+&lt;p&gt;为了让软件易于迭代，需要好的 system boundary。Boundary 上的修改是破坏性的（影响你控制不了的外部用户），而 boundary 内部的重构成本小得多。因此 boundary 的设计是软件架构中最关键的决策——它决定了哪些部分可以自由演化，哪些部分被冻结。&lt;/p&gt;
+&lt;p&gt;但 boundary 必须结合实际需求引入。过早引入 boundary 会冻结你还没理解清楚的设计；错误的 boundary 比没有 boundary 更糟，因为它既阻止了迭代，又没有提供正确的约束。当 boundary 还模糊时，用巫师模式快速探索，不要陷入过度设计。等理解清楚了再固化为工程代码。&lt;/p&gt;
+&lt;p&gt;UML 的失败就是试图跳过迭代循环——假设可以在实现之前完成全部设计。但是没有人能跳过它。&lt;/p&gt;
+&lt;h2 id=&quot;system-boundary&quot;&gt;System Boundary&lt;a class=&quot;zola-anchor&quot; href=&quot;#system-boundary&quot; aria-label=&quot;Anchor link for: system-boundary&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;blockquote&gt;
+&lt;p&gt;&quot;It&#39;s the inability to make breaking changes because you have (or are acting like you have) external users to support that really defines a boundary.&quot;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h3 id=&quot;jia-gou-de-ben-zhi-guan-li-bu-ke-zhi-de-man-yan&quot;&gt;架构的本质：管理 &quot; 不可知 &quot; 的蔓延&lt;a class=&quot;zola-anchor&quot; href=&quot;#jia-gou-de-ben-zhi-guan-li-bu-ke-zhi-de-man-yan&quot; aria-label=&quot;Anchor link for: jia-gou-de-ben-zhi-guan-li-bu-ke-zhi-de-man-yan&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;System boundary 将系统分隔出层级，是层级之间的契约。各层级内部有自己的&lt;em&gt;约束&lt;/em&gt;——约定什么能做，什么不能做。有了约束，层级之间就可以进行假设和推理。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;架构的核心工作，是在系统规模扩大的过程中，阻止 &quot; 什么都不能假设 &quot; 蔓延到每一个角落。&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;没有架构约束的系统，每个模块都能做任何事，依赖任何其他模块。改任何地方都不安全，因为你不知道连锁反应在哪里结束——这就是 &quot; 大泥球 &quot;。&lt;/p&gt;
+&lt;p&gt;好的架构通过刻意施加约束，把系统划分成若干个 &quot; 在这里，你可以知道某些事 &quot; 的区域，让局部推理成为可能。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;约束不是设计的妥协，而是设计的目的本身。&lt;/strong&gt;&lt;/p&gt;
+&lt;h2 id=&quot;she-ji-system-boundary&quot;&gt;设计 System Boundary&lt;a class=&quot;zola-anchor&quot; href=&quot;#she-ji-system-boundary&quot; aria-label=&quot;Anchor link for: she-ji-system-boundary&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;h3 id=&quot;lei-xing-she-ji&quot;&gt;类型设计&lt;a class=&quot;zola-anchor&quot; href=&quot;#lei-xing-she-ji&quot; aria-label=&quot;Anchor link for: lei-xing-she-ji&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;&lt;em&gt;这里的 &quot; 易于扩展 &quot; 针对的是类型的使用者（而非实现者）。&lt;/em&gt;&lt;/p&gt;
+&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;类型&lt;/th&gt;&lt;th&gt;使用者易于扩展&lt;/th&gt;&lt;th&gt;破坏性扩展&lt;/th&gt;&lt;th&gt;换来的性质&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;
+&lt;tr&gt;&lt;td&gt;Data（pub fields）&lt;/td&gt;&lt;td&gt;方法（利用公开字段写新函数）&lt;/td&gt;&lt;td&gt;变体（加字段破坏所有使用者）&lt;/td&gt;&lt;td&gt;使用者自由度最大&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;Object（trait/interface）&lt;/td&gt;&lt;td&gt;变体（实现新类型）&lt;/td&gt;&lt;td&gt;方法（加新方法破坏所有实现者）&lt;/td&gt;&lt;td&gt;实现可替换&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;&lt;td&gt;ADT（sealed, 非 pub）&lt;/td&gt;&lt;td&gt;都不能&lt;/td&gt;&lt;td&gt;都不能&lt;/td&gt;&lt;td&gt;&lt;strong&gt;实现者自由度最大&lt;/strong&gt;，内部可随意改变&lt;/td&gt;&lt;/tr&gt;
+&lt;/tbody&gt;&lt;/table&gt;
+&lt;p&gt;&lt;strong&gt;直觉：优先 ADT，property 最强。&lt;/strong&gt; 用 ADT + 组合实现复用。只在确实需要外部扩展时，再根据扩展方向选择 data（需要加操作）或 object（需要加变体）。matklad 的 &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://matklad.github.io/2020/08/15/concrete-abstraction.html&quot;&gt;Code Smell: Concrete Abstraction&lt;/a&gt; 中的观点: 直到处理分发的方法出现, 才抽象出 trait, 也是类似的思路。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Variance 影响演化方向：&lt;/strong&gt; 参数收窄是破坏性的（调用者传的值可能不再合法），返回值放宽是破坏性的（调用者对返回值的假设可能不再成立）。设计 boundary API 时，要想清楚每个位置的变化方向。&lt;/p&gt;
+&lt;h3 id=&quot;yi-lai-guan-li&quot;&gt;依赖管理&lt;a class=&quot;zola-anchor&quot; href=&quot;#yi-lai-guan-li&quot; aria-label=&quot;Anchor link for: yi-lai-guan-li&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;&lt;img src=&quot;https://uchout.moe/posts/software-design/./dep.png&quot; alt=&quot;dependencies&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;模块的五个维度都应该尽量小：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;更少的&lt;strong&gt;公开依赖&lt;/strong&gt; → 使用者认知负担小&lt;/li&gt;
+&lt;li&gt;更少的&lt;strong&gt;私有依赖&lt;/strong&gt; → 开发者认知负担小&lt;/li&gt;
+&lt;li&gt;更小的&lt;strong&gt;实现&lt;/strong&gt; → 更容易理解&lt;/li&gt;
+&lt;li&gt;更少的&lt;strong&gt;公开抽象&lt;/strong&gt; → 更容易学习&lt;/li&gt;
+&lt;li&gt;更少的&lt;strong&gt;入向依赖&lt;/strong&gt; → 更容易演化&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;但这五个目标&lt;strong&gt;互相制约&lt;/strong&gt;：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;减少公开依赖 → 可能需要引入更多抽象层（增大公开抽象）&lt;/li&gt;
+&lt;li&gt;减少私有依赖 → 可能需要复制代码（增大实现）&lt;/li&gt;
+&lt;li&gt;减少公开抽象 → 可能需要拆成更多模块（增加模块间复杂度）&lt;/li&gt;
+&lt;li&gt;减少实现 → 可能需要更多模块（增加依赖关系）&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;反依赖设计&lt;/strong&gt;：最重要的问题不是 &quot; 暴露什么 &quot;，而是 &quot; 不暴露什么 &quot;、&quot; 不依赖什么 &quot;、&quot; 什么不能依赖我 &quot;。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;公开依赖传染&lt;/strong&gt;：暴露在 boundary API 中的类型也成为 boundary。随手加一个 getter 暴露内部类型，影响比你以为的大得多。&lt;/p&gt;
+&lt;h3 id=&quot;shu-ju-jie-ou&quot;&gt;数据解耦&lt;a class=&quot;zola-anchor&quot; href=&quot;#shu-ju-jie-ou&quot; aria-label=&quot;Anchor link for: shu-ju-jie-ou&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;数据可以作为模块之间的接口——协议、IR、ViewModel 都是这个思路。&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;行动具象化&lt;/strong&gt;：把状态变更表示为数据类型（event enum）+ 独立的执行器/interpreter。&lt;/p&gt;
+&lt;h2 id=&quot;test&quot;&gt;Test&lt;a class=&quot;zola-anchor&quot; href=&quot;#test&quot; aria-label=&quot;Anchor link for: test&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h2&gt;
+&lt;h3 id=&quot;ce-shi-de-liang-ge-zuo-yong&quot;&gt;测试的两个作用&lt;a class=&quot;zola-anchor&quot; href=&quot;#ce-shi-de-liang-ge-zuo-yong&quot; aria-label=&quot;Anchor link for: ce-shi-de-liang-ge-zuo-yong&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;strong&gt;保证 boundary API 的功能和形状正确&lt;/strong&gt;——boundary 上的测试维护成本接近零，因为 boundary 本身就不应该随意变化&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;开发期间的快速验证工具&lt;/strong&gt;——帮助确认当前实现是否符合预期&lt;/li&gt;
+&lt;/ol&gt;
+&lt;h3 id=&quot;he-xin-yuan-ze&quot;&gt;核心原则&lt;a class=&quot;zola-anchor&quot; href=&quot;#he-xin-yuan-ze&quot; aria-label=&quot;Anchor link for: he-xin-yuan-ze&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;先有推理，才有测试。&lt;/strong&gt; 不是通过测试来推理出设计，而是推理出设计后用测试来固定它。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Sans-IO 的本质是逻辑和执行的解耦。&lt;/strong&gt; 核心逻辑变成纯函数/状态机，无需 mock 就能测试。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Property test 优于 example-based unit test。&lt;/strong&gt; 一个 property test 可以替代多个手写用例，覆盖面更广，且不与实现细节耦合。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;test at system boundary.&lt;/strong&gt; 只关心 boundary 的公共行为，不关心内部实现。重构内部时这些测试不会碎。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;在 Rust 实践中，把集成测试统一到一个 test-suite crate 可以显著加快编译。&lt;/strong&gt; 避免每个测试文件都重新链接所有依赖库。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;mock-de-wen-ti&quot;&gt;Mock 的问题&lt;a class=&quot;zola-anchor&quot; href=&quot;#mock-de-wen-ti&quot; aria-label=&quot;Anchor link for: mock-de-wen-ti&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;Mock 无法提供&lt;strong&gt;双向保证&lt;/strong&gt;——模拟的行为不保证是真实的行为。你 mock 了数据库返回 0，但真实数据库在那个场景返回 NULL，测试全绿但生产环境爆炸。&lt;/p&gt;
+&lt;p&gt;在内部代码中追求 mock 还会把测试与实现耦合：重构内部时 mock 跟着全碎，测试从安全网变成障碍。&lt;/p&gt;
+&lt;h3 id=&quot;ce-shi-de-sheng-ming-zhou-qi&quot;&gt;测试的生命周期&lt;a class=&quot;zola-anchor&quot; href=&quot;#ce-shi-de-sheng-ming-zhou-qi&quot; aria-label=&quot;Anchor link for: ce-shi-de-sheng-ming-zhou-qi&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;测试是迭代的，和代码一样有生命周期：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;开发期&lt;/strong&gt;：对具体实现写单元测试 → 有用，快速反馈&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;设计稳定后&lt;/strong&gt;：同样的内部测试 → 可能成为妨碍重构的负担&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;正确做法：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;开发期用内部测试获得快速反馈&lt;/li&gt;
+&lt;li&gt;设计稳定后，把测试迁移到 boundary（或接受内部测试被删掉/重写）&lt;/li&gt;
+&lt;li&gt;boundary 上的测试长期保留——它们不会因为内部重构而碎&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3 id=&quot;shen-me-shi-hou-xie-ce-shi&quot;&gt;什么时候写测试&lt;a class=&quot;zola-anchor&quot; href=&quot;#shen-me-shi-hou-xie-ce-shi&quot; aria-label=&quot;Anchor link for: shen-me-shi-hou-xie-ce-shi&quot; style=&quot;visibility: hidden;&quot;&gt;&lt;/a&gt;
+&lt;/h3&gt;
+&lt;p&gt;边界还没清晰时，不应该设立大量测试——&lt;strong&gt;边界的设计就是推理的过程，推理先于测试。&lt;/strong&gt;&lt;/p&gt;
+&lt;pre class=&quot;giallo z-l-code z-d-code&quot; &gt;&lt;code data-lang=&quot;plain&quot;&gt;&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;你知道 boundary 在哪吗？&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;├── 是（spec/已有 trait/外部用户）&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;│   → 直接设计 Type → 写测试 → 实现&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;└── 不确定&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;    ├── 硬 boundary？（影响你控制不了的东西）&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;    │   ├── 是 → 必须先推理清楚，不能巫师模式&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;    │   └── 不是 → 巫师模式探索，之后自由重构&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;    └── 完全未知的问题域&lt;/span&gt;&lt;/span&gt;
+&lt;span class=&quot;giallo-l&quot;&gt;&lt;span&gt;        → 写 spike/原型 → 理解后丢掉 → 重新设计 boundary&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;识别到 boundary 后的流程：设计类型 → 设计 API → 写 boundary 测试 → 实现 → property test 加固。&lt;/p&gt;
+&lt;p&gt;关于类型设计: &lt;a rel=&quot;noopener nofollow noreferrer external&quot; target=&quot;_blank&quot; href=&quot;https://www.ruggero.io/blog/rust_type_driven_development_guide/&quot;&gt;Rust type driven development&lt;/a&gt;&lt;/p&gt;
+</content>
+	</entry>
+</feed>

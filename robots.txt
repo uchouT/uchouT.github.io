@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /tags/*
+Disallow: /categories/*
+
+Host: uchout.moe
+Sitemap: https://uchout.moe/sitemap.xml
