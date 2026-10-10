@@ -20,6 +20,6 @@ Hi, I'm uchouT. Linux lover / Rustacean / Homelab player.
 
 受 DAN KOE 的文章 [The writing habit that saved my brain (and my future)](https://x.com/thedankoe/status/2077513202527773093) 影响, 打算输出一些内容, 企图吸引一些同好, 同时也算是践行一下费曼学习法了.
 
-It's recommended to browser this site via [RSS](/posts/feed.xml).
+This site supports full-text [RSS](/posts/feed.xml).
 
 For more about me, please visit the [about page](./about).

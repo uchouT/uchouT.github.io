@@ -52,6 +52,7 @@ blog_section_path = "/posts"  # Main blog section, used by home page's recent po
 name = "uchouT"
 bio = "Just for fun."
 avatar = "img/self_small.jpg"
+og_image = "img/self.jpg"
 links = [
   { name = "GitHub", icon = "github", url = "https://github.com/uchouT" },
   { name = "Twitter/x", icon = "twitter-x", url = "https://x.com/0x_uchouT" },
